@@ -21,29 +21,44 @@ enum ApplicationStatus {
   WAITLISTED
 }
 
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // --- Core Models ---
 
 model User {
-  id        String   @id @default(uuid())
-  clerkId   String   @unique // Links to Clerk Auth
-  email     String   @unique
+  id        String  @id @default(uuid())
+  clerkId   String  @unique // Links to Clerk Auth
+  email     String  @unique
   firstName String?
   lastName  String?
   avatarUrl String?
-  
+
   // Academic Profile (For Matching)
-  gpa           Float?
-  satScore      Int?
-  actScore      Int?
-  maxBudget     Int?     // Annual budget
+  gpa            Float?
+  satScore       Int?
+  actScore       Int?
+  maxBudget      Int? // Annual budget
   preferredMajor String?
-  
-  role          UserRole @default(USER)
-  
+
+  role UserRole @default(USER)
+
   // Relations
   savedUniversities SavedUniversity[]
   comparisons       Comparison[]
-  
+  articles          Article[]
+  reviews           Review[]
+  comments          Comment[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -51,68 +66,214 @@ model User {
 }
 
 model University {
-  id          String   @id @default(uuid())
-  slug        String   @unique
-  name        String
-  description String?  @db.Text
-  logoUrl     String?
+  id           String  @id @default(uuid())
+  slug         String  @unique
+  name         String
+  description  String? @db.Text
+  logoUrl      String?
   heroImageUrl String?
-  
-  // --- Location ---
-  city           String
-  state          String?
-  country        String   @default("USA")
-  locationCoords Json?    // { lat: number, lng: number }
-  
-  // --- Stats (For Matching) ---
-  ranking        Int?
-  acceptanceRate Float?   // 0.0 to 1.0
-  minGpa         Float?   // e.g. 3.0
-  avgSatScore    Int?
-  avgActScore    Int?
-  
-  // --- Costs ---
-  tuitionInState  Int?
-  tuitionOutState Int?
-  costOfLiving    Int?
-  
-  // --- Metadata ---
-  popularMajors   String[] // Array of strings
-  websiteUrl      String?
-  
-  // Relations
+  websiteUrl   String?
+
+  // --- Location & Contact ---
+  address   String?
+  city      String
+  state     String?
+  zipCode   String?
+  country   String  @default("USA")
+  latitude  Float?
+  longitude Float?
+
+  // --- Classification ---
+  type                 String? // e.g., "Public", "Private"
+  classification       String? // e.g., "Research University"
+  religiousAffiliation String?
+  setting              String? // e.g., "Urban", "Suburban", "Rural"
+  campusSizeAcres      Int?
+
+  // --- Admissions Stats ---
+  acceptanceRate        Float? // 0.0 to 1.0
+  applicationFee        Int?
+  commonAppAccepted     Boolean   @default(false)
+  applicationDeadline   DateTime?
+  earlyDecisionDeadline DateTime?
+
+  // --- Academic Requirements ---
+  minGpa         Float? // e.g. 3.0
+  avgGpa         Float? // e.g. 3.7
+  satMath25      Int?
+  satMath75      Int?
+  satVerbal25    Int?
+  satVerbal75    Int?
+  actComposite25 Int?
+  actComposite75 Int?
+  avgSatScore    Int? // Calculated average
+  avgActScore    Int? // Calculated average
+
+  // --- Costs & Financials ---
+  tuitionInState   Int?
+  tuitionOutState  Int?
+  roomAndBoard     Int?
+  booksAndSupplies Int?
+  costOfLiving     Int?
+
+  // --- Financial Aid ---
+  percentReceivingAid Float? // 0.0 to 1.0
+  averageGrantAid     Int?
+  averageNetPrice     Int?
+
+  // --- Student Body ---
+  studentPopulation       Int?
+  undergraduatePopulation Int?
+  graduatePopulation      Int?
+  studentFacultyRatio     Float?
+  percentMale             Float?
+  percentFemale           Float?
+  diversityScore          Float? // 0.0 to 1.0
+
+  // --- Outcomes ---
+  graduationRate        Float?
+  retentionRate         Float?
+  employmentRate        Float?
+  averageStartingSalary Int?
+
+  // --- Campus Life & Sports ---
+  sportsDivision   String? // e.g., "NCAA Division I"
+  hasHousing       Boolean @default(true)
+  studentLifeScore Float? // 0.0 to 5.0 (Generated metric)
+  safetyRating     Float? // 0.0 to 5.0
+  partySceneRating Float? // 0.0 to 5.0
+
+  // --- Metadata & Arrays ---
+  popularMajors String[]
+  rankings      Json? // Store detailed ranking data { "usNews": 5, "forbes": 12 }
+
+  // --- Relations ---
   savedBy SavedUniversity[]
-  
+  reviews Review[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  @@index([name])
+
+  @@index([slug])
   @@index([country])
+  @@index([name])
+  @@index([tuitionOutState])
+  @@index([avgSatScore])
 }
 
 model SavedUniversity {
-  id           String            @id @default(uuid())
-  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String     @id @default(uuid())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId       String
-  university   University        @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
   universityId String
-  
-  status       ApplicationStatus @default(PLANNED)
-  notes        String?           @db.Text
-  
-  createdAt    DateTime          @default(now())
+
+  status ApplicationStatus @default(PLANNED)
+  notes  String?           @db.Text
+
+  createdAt DateTime @default(now())
 
   @@unique([userId, universityId])
 }
 
 model Comparison {
-  id        String   @id @default(uuid())
-  name      String   // e.g., "Ivy League vs Public"
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  
+  id     String @id @default(uuid())
+  name   String // e.g., "Ivy League vs Public"
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
   // Stores IDs of universities in this comparison
-  universityIds String[] 
-  
+  universityIds String[]
+
   createdAt DateTime @default(now())
+}
+
+// --- Content Management System ---
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?
+  articles    Article[]
+
+  createdAt DateTime @default(now())
+}
+
+model Article {
+  id            String  @id @default(uuid())
+  slug          String  @unique
+  title         String
+  excerpt       String? @db.Text
+  content       String  @db.Text
+  featuredImage String?
+
+  status      ArticleStatus @default(DRAFT)
+  publishedAt DateTime?
+
+  // --- SEO ---
+  metaTitle       String?
+  metaDescription String?
+
+  // --- Relations ---
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
+
+  comments Comment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([status])
+}
+
+model Comment {
+  id      String @id @default(uuid())
+  content String @db.Text
+
+  articleId String
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Threading
+  parentId String?
+  parent   Comment?  @relation("CommentThread", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentThread")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Review {
+  id     String @id @default(uuid())
+  rating Float // Overall rating 1-5
+
+  // --- Detailed Breakdown ---
+  academicRating Float?
+  campusRating   Float?
+  socialRating   Float?
+  careerRating   Float?
+
+  title   String?
+  content String       @db.Text
+  status  ReviewStatus @default(PENDING)
+
+  universityId String
+  university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, universityId]) // One review per user per university
+  @@index([universityId])
+  @@index([status])
 }

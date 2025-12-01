@@ -4,75 +4,97 @@ const prisma = new PrismaClient();
 
 export interface MatchProfile {
   gpa: number;
+  satScore?: number;
+  actScore?: number;
   maxBudget: number;
-  interests: string[];
+  preferredMajor: string;
   preferredCountry?: string;
-}
-
-export interface MatchBreakdown {
-  gpaScore: number;
-  budgetScore: number;
-  interestScore: number;
+  importanceFactors: {
+    academics: number; // 1-10
+    social: number;    // 1-10
+    cost: number;      // 1-10
+  };
 }
 
 export interface UniversityMatchResult {
   university: University;
   matchScore: number;
-  breakdown: MatchBreakdown;
+  breakdown: {
+    academicScore: number;
+    financialScore: number;
+    socialScore: number;
+    majorScore: number;
+  };
 }
 
 export class MatchingService {
   static async findMatches(profile: MatchProfile): Promise<UniversityMatchResult[]> {
-    const { preferredCountry } = profile;
-
     const where: any = {};
-    if (preferredCountry) {
-      where.country = preferredCountry;
+    if (profile.preferredCountry) {
+      where.country = profile.preferredCountry;
     }
 
-    // Fetch universities (limit for performance)
-    const universities = await prisma.university.findMany({
-      where,
-      take: 1000,
-      orderBy: { name: 'asc' },
+    // Fetch all universities (optimize with cursor pagination in production)
+    const universities = await prisma.university.findMany({ where });
+
+    const results = universities.map((uni) => {
+      const breakdown = this.calculateScores(uni, profile);
+      
+      // Weighted total based on user importance
+      // Normalize importance to percentages
+      const totalImp = profile.importanceFactors.academics + profile.importanceFactors.cost + profile.importanceFactors.social;
+      const wAcademics = profile.importanceFactors.academics / totalImp;
+      const wCost = profile.importanceFactors.cost / totalImp;
+      const wSocial = profile.importanceFactors.social / totalImp;
+
+      // Base score calculation
+      let matchScore = (
+        (breakdown.academicScore * wAcademics) +
+        (breakdown.financialScore * wCost) +
+        (breakdown.socialScore * wSocial) +
+        (breakdown.majorScore * 0.2) // Major is always relevant flat bonus
+      );
+
+      // Normalize to 0-100
+      matchScore = Math.min(100, Math.max(0, matchScore));
+
+      return { university: uni, matchScore, breakdown };
     });
 
-    const results: UniversityMatchResult[] = universities.map((uni) => {
-      const gpaScore = calculateGpaScore(profile.gpa, uni.minGpa);
-      const budgetScore = calculateBudgetScore(profile.maxBudget, uni.tuitionOutState);
-      const interestScore = calculateInterestScore(profile.interests, uni.popularMajors || []);
-      const matchScore = gpaScore + budgetScore + interestScore;
-
-      return {
-        university: uni,
-        matchScore,
-        breakdown: { gpaScore, budgetScore, interestScore },
-      };
-    });
-
-    // Sort descending by score and return top 20
+    // Return top 20 matches sorted by score
     return results.sort((a, b) => b.matchScore - a.matchScore).slice(0, 20);
   }
-}
 
-function calculateGpaScore(userGpa: number, minGpa: number | null | undefined): number {
-  if (minGpa == null) return 15; // Neutral when missing
-  return userGpa >= minGpa ? 30 : 0;
-}
+  private static calculateScores(uni: University, profile: MatchProfile) {
+    // 1. Academic Score (0-100)
+    let academicScore = 70; // Base score
+    if (uni.minGpa && profile.gpa >= uni.minGpa) academicScore += 10;
+    if (uni.avgGpa && profile.gpa >= uni.avgGpa) academicScore += 20;
+    
+    // SAT/ACT handling
+    if (profile.satScore && uni.satMath25 && uni.satMath75 && uni.satVerbal25 && uni.satVerbal75) {
+      const uniAvgSat = (uni.satMath25 + uni.satMath75 + uni.satVerbal25 + uni.satVerbal75) / 2;
+      if (profile.satScore >= uniAvgSat) academicScore += 20;
+      else if (profile.satScore >= (uni.satMath25 + uni.satVerbal25)) academicScore += 10;
+    }
 
-function calculateBudgetScore(maxBudget: number, tuitionOutState: number | null | undefined): number {
-  if (tuitionOutState == null) return 0; // Treat missing tuition as unknown (no points)
-  return tuitionOutState <= maxBudget ? 30 : 0;
-}
+    // 2. Financial Score (0-100)
+    // Compare Budget vs (OutState Tuition - Avg Aid)
+    const estimatedCost = (uni.tuitionOutState || 50000) - (uni.averageGrantAid || 0);
+    const budgetRatio = profile.maxBudget / estimatedCost;
+    let financialScore = Math.min(100, budgetRatio * 80);
+    if (profile.maxBudget >= (uni.tuitionOutState || 999999)) financialScore = 100; // Full coverage
 
-function calculateInterestScore(interests: string[], majors: string[]): number {
-  if (!interests.length) return 0; // Schema enforces at least 1, defensive
-  if (!majors.length) return 0;
+    // 3. Social Score (0-100)
+    // Uses the new seed data fields
+    const socialScore = ((uni.studentLifeScore || 3) / 5) * 100;
 
-  const interestSet = interests.map((i) => i.toLowerCase());
-  const majorsSet = majors.map((m) => m.toLowerCase());
+    // 4. Major Score (0 or 100)
+    const hasMajor = uni.popularMajors.some(m => 
+      m.toLowerCase().includes(profile.preferredMajor.toLowerCase())
+    );
+    const majorScore = hasMajor ? 100 : 0;
 
-  const matches = interestSet.filter((i) => majorsSet.includes(i)).length;
-  const ratio = matches / interests.length;
-  return ratio * 40;
+    return { academicScore, financialScore, socialScore, majorScore };
+  }
 }

@@ -1,0 +1,118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Enums ---
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ApplicationStatus {
+  PLANNED
+  APPLIED
+  ACCEPTED
+  REJECTED
+  WAITLISTED
+}
+
+// --- Core Models ---
+
+model User {
+  id        String   @id @default(uuid())
+  clerkId   String   @unique // Links to Clerk Auth
+  email     String   @unique
+  firstName String?
+  lastName  String?
+  avatarUrl String?
+  
+  // Academic Profile (For Matching)
+  gpa           Float?
+  satScore      Int?
+  actScore      Int?
+  maxBudget     Int?     // Annual budget
+  preferredMajor String?
+  
+  role          UserRole @default(USER)
+  
+  // Relations
+  savedUniversities SavedUniversity[]
+  comparisons       Comparison[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clerkId])
+}
+
+model University {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  name        String
+  description String?  @db.Text
+  logoUrl     String?
+  heroImageUrl String?
+  
+  // --- Location ---
+  city           String
+  state          String?
+  country        String   @default("USA")
+  locationCoords Json?    // { lat: number, lng: number }
+  
+  // --- Stats (For Matching) ---
+  ranking        Int?
+  acceptanceRate Float?   // 0.0 to 1.0
+  minGpa         Float?   // e.g. 3.0
+  avgSatScore    Int?
+  avgActScore    Int?
+  
+  // --- Costs ---
+  tuitionInState  Int?
+  tuitionOutState Int?
+  costOfLiving    Int?
+  
+  // --- Metadata ---
+  popularMajors   String[] // Array of strings
+  websiteUrl      String?
+  
+  // Relations
+  savedBy SavedUniversity[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([name])
+  @@index([country])
+}
+
+model SavedUniversity {
+  id           String            @id @default(uuid())
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  university   University        @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  universityId String
+  
+  status       ApplicationStatus @default(PLANNED)
+  notes        String?           @db.Text
+  
+  createdAt    DateTime          @default(now())
+
+  @@unique([userId, universityId])
+}
+
+model Comparison {
+  id        String   @id @default(uuid())
+  name      String   // e.g., "Ivy League vs Public"
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  
+  // Stores IDs of universities in this comparison
+  universityIds String[] 
+  
+  createdAt DateTime @default(now())
+}

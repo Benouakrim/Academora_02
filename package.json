@@ -1,0 +1,17 @@
+{
+  "name": "academora-workspace",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Root workspace scripts for Academora client and server",
+  "scripts": {
+    "server:dev": "npm run dev --prefix C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/server",
+    "client:dev": "npm run dev --prefix C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/client",
+    "server:start": "npm start --prefix C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/server",
+    "client:build": "npm run build --prefix C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/client",
+    "client:start": "npm run preview --prefix C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/client",
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$s = Start-Job { npm run dev --prefix 'C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/server' }; $c = Start-Job { npm run dev --prefix 'C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/client' }; Receive-Job -Wait $s,$c\""
+  },
+  "dependencies": {
+    "react-is": "^19.2.0"
+  }
+}

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
 import './App.css';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import UserArticleEditor from '@/pages/blog/UserArticleEditor';
 
 const RootLayout = lazy(() => import('@/layouts/RootLayout'));
 const DashboardLayout = lazy(() => import('@/layouts/DashboardLayout'));
@@ -18,6 +19,8 @@ const AdminHealthPage = lazy(() => import('@/pages/admin/AdminHealthPage'));
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'));
 const SavedPage = lazy(() => import('@/pages/dashboard/SavedPage'));
 const ProfilePage = lazy(() => import('@/pages/dashboard/profile/ProfilePage'));
+const BlogPage = lazy(() => import('@/pages/blog/BlogPage'));
+const ArticlePage = lazy(() => import('@/pages/blog/ArticlePage'));
 const SignIn = lazy(() => import('@clerk/clerk-react').then(m => ({ default: m.SignIn })));
 const SignUp = lazy(() => import('@clerk/clerk-react').then(m => ({ default: m.SignUp })));
 
@@ -53,6 +56,13 @@ export default function App() {
               <Route path="health" element={<AdminHealthPage />} />
             </Route>
           </Route>
+
+          {/* Public Blog */}
+          <Route path="/blog" element={<BlogPage />} />
+          <Route path="/blog/:slug" element={<ArticlePage />} />
+
+          {/* Write Article */}
+          <Route path="/write" element={<UserArticleEditor />} />
 
           <Route path="*" element={<div className="p-6">Not Found</div>} />
         </Routes>

@@ -10,4 +10,20 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    include: [
+      '@tiptap/react',
+      '@tiptap/starter-kit',
+      '@tiptap/extension-image',
+      '@tiptap/extension-link',
+      '@tiptap/extension-placeholder',
+      'use-sync-external-store',
+      'use-sync-external-store/shim'
+    ],
+  },
+  build: {
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+  },
 })

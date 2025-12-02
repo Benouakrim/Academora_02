@@ -12,6 +12,10 @@
     "dev": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$s = Start-Job { npm run dev --prefix 'C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/server' }; $c = Start-Job { npm run dev --prefix 'C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/client' }; Receive-Job -Wait $s,$c\""
   },
   "dependencies": {
-    "react-is": "^19.2.0"
+    "cloudinary": "^2.8.0",
+    "multer": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/multer": "^2.0.0"
   }
 }

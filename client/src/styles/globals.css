@@ -4,69 +4,156 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    /* ========================================
+     * 1. VIBRANT COLOR TOKENS (Updated)
+     * ======================================== */
+    
+    /* Primary: Electric Blue */
+    --color-primary-50: #eff6ff;
+    --color-primary-100: #dbeafe;
+    --color-primary-200: #bfdbfe;
+    --color-primary-300: #93c5fd;
+    --color-primary-400: #60a5fa;
+    --color-primary-500: #3b82f6; /* Vibrant Blue */
+    --color-primary-600: #2563eb;
+    --color-primary-700: #1d4ed8;
+    --color-primary-800: #1e40af;
+    --color-primary-900: #1e3a8a;
+    --color-primary-950: #172554;
 
-    /* Brand: Deep Blue (Trust) */
+    /* Accent: Bright Amber/Orange */
+    --color-accent-50: #fff7ed;
+    --color-accent-100: #ffedd5;
+    --color-accent-200: #fed7aa;
+    --color-accent-300: #fdba74;
+    --color-accent-400: #fb923c;
+    --color-accent-500: #f97316; /* Vivid Orange */
+    --color-accent-600: #ea580c;
+    --color-accent-700: #c2410c;
+    --color-accent-800: #9a3412;
+    --color-accent-900: #7c2d12;
+
+    /* Neutral: Clean Slate */
+    --color-neutral-50: #f8fafc;
+    --color-neutral-100: #f1f5f9;
+    --color-neutral-200: #e2e8f0;
+    --color-neutral-300: #cbd5e1;
+    --color-neutral-400: #94a3b8;
+    --color-neutral-500: #64748b;
+    --color-neutral-600: #475569;
+    --color-neutral-700: #334155;
+    --color-neutral-800: #1e293b;
+    --color-neutral-900: #0f172a;
+
+    /* ========================================
+     * 2. TYPOGRAPHY
+     * ======================================== */
+    --font-primary: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-secondary: "Merriweather", Georgia, serif;
+
+    /* ========================================
+     * 3. SHADOWS (Deeper, softer)
+     * ======================================== */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-primary-lg: 0 10px 15px -3px rgba(59, 130, 246, 0.4), 0 4px 6px -4px rgba(59, 130, 246, 0.2);
+
+    /* ========================================
+     * 4. SHADCN UI MAPPING (HSL Values)
+     * ======================================== */
+    
+    /* Background: Pure White */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%; /* Deep Navy Text */
+
+    /* Primary: Electric Blue */
     --primary: 221 83% 53%;
     --primary-foreground: 210 40% 98%;
 
-    /* Brand: Vivid Violet (Creativity) */
-    --secondary: 262 83% 58%;
-    --secondary-foreground: 210 40% 98%;
+    /* Secondary: Soft Violet */
+    --secondary: 262 83% 96%;
+    --secondary-foreground: 262 83% 40%;
 
-    /* Brand: Amber (Growth) */
-    --accent: 38 92% 50%;
-    --accent-foreground: 222 47% 11%;
-
-    /* UI States */
+    /* Muted: Cool Gray */
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+
+    /* Accent: Amber */
+    --accent: 38 92% 50%;
+    --accent-foreground: 210 40% 98%;
+
+    /* Destructive */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 221 83% 53%;
+
     --radius: 0.75rem;
   }
 
   .dark {
+    /* Background: Deep Navy (Not Black) */
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
+
+    /* Primary: Lighter Electric Blue */
     --primary: 217 91% 60%;
     --primary-foreground: 222 47% 11%;
-    --secondary: 262 83% 65%;
+
+    /* Secondary: Deep Violet */
+    --secondary: 262 40% 20%;
     --secondary-foreground: 210 40% 98%;
+
+    /* Muted */
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    /* Accent: Amber */
     --accent: 38 92% 50%;
     --accent-foreground: 222 47% 11%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 217 91% 60%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 212.7 26.8% 83.9%;
   }
 }
 
 @layer base {
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground font-sans antialiased selection:bg-primary/20; }
-  h1, h2, h3, h4, h5, h6 { @apply tracking-tight text-foreground; }
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased selection:bg-primary/30;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-bold;
+  }
 }
 
 @layer utilities {
-  .glass-panel {
-    @apply bg-white/70 dark:bg-black/70 backdrop-blur-md border border-white/20 shadow-xl;
-  }
+  /* Vibrant Gradients */
   .bg-gradient-brand {
-    @apply bg-gradient-to-r from-primary via-secondary to-accent;
+    background-image: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-500), 90%, var(--color-accent-500));
   }
+  
+  /* Text Gradient */
   .text-gradient-brand {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-secondary to-accent;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-image: linear-gradient(135deg, var(--color-primary-600), var(--color-primary-400), var(--color-accent-500));
+  }
+
+  /* Glassmorphism */
+  .glass-panel {
+    @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/20 shadow-xl;
   }
 }

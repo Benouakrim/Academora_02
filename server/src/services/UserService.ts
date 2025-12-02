@@ -9,7 +9,22 @@ export class UserService {
       where: { clerkId },
       include: {
         savedUniversities: {
-          include: { university: true },
+          include: { 
+            university: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                city: true,
+                state: true,
+                country: true,
+                logoUrl: true,
+                tuitionOutState: true,
+                tuitionInternational: true,
+              }
+            } 
+          },
+          orderBy: { createdAt: 'desc' }
         },
       },
     });
@@ -18,12 +33,20 @@ export class UserService {
   }
 
   static async updateProfile(clerkId: string, data: any) {
-    // Directly update permitted fields; validation ensures shape
-    const updated = await prisma.user.update({
-      where: { clerkId },
-      data,
-    });
-    return updated;
+    // Filter out undefined/null values to avoid overwriting with null
+    const cleanData = Object.fromEntries(
+      Object.entries(data).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    );
+
+    try {
+      const updated = await prisma.user.update({
+        where: { clerkId },
+        data: cleanData,
+      });
+      return updated;
+    } catch (err) {
+      throw new AppError(400, 'Failed to update profile');
+    }
   }
 
   static async toggleSavedUniversity(clerkId: string, universityId: string) {

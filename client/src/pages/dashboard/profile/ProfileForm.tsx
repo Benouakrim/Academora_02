@@ -6,12 +6,74 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
 import { useUserStore } from '@/store/useUserStore'
+import { Badge } from '@/components/ui/badge'
+import { X, Plus } from 'lucide-react'
+import { useState } from 'react'
 
 type Props = {
   initialData?: Record<string, any> | null
+}
+
+function TagInput({ 
+  value = [], 
+  onChange, 
+  placeholder 
+}: { 
+  value: string[], 
+  onChange: (val: string[]) => void, 
+  placeholder: string 
+}) {
+  const [input, setInput] = useState('')
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (input.trim() && !value.includes(input.trim())) {
+        onChange([...value, input.trim()])
+        setInput('')
+      }
+    }
+  }
+
+  const removeTag = (tagToRemove: string) => {
+    onChange(value.filter(tag => tag !== tagToRemove))
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 mb-2">
+        {value.map(tag => (
+          <Badge key={tag} variant="secondary" className="px-2 py-1 text-sm gap-1">
+            {tag}
+            <button type="button" onClick={() => removeTag(tag)} className="hover:text-destructive">
+              <X className="w-3 h-3" />
+            </button>
+          </Badge>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <Input 
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+        />
+        <Button type="button" variant="outline" onClick={() => {
+          if (input.trim() && !value.includes(input.trim())) {
+            onChange([...value, input.trim()])
+            setInput('')
+          }
+        }}>
+          <Plus className="w-4 h-4" />
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">Press Enter to add</p>
+    </div>
+  )
 }
 
 export default function ProfileForm({ initialData }: Props) {
@@ -23,116 +85,164 @@ export default function ProfileForm({ initialData }: Props) {
       gpa: initialData?.gpa ?? undefined,
       satScore: initialData?.satScore ?? undefined,
       actScore: initialData?.actScore ?? undefined,
-      familyIncome: initialData?.familyIncome ?? undefined,
-      interestedInAid: initialData?.interestedInAid ?? false,
       maxBudget: initialData?.maxBudget ?? 50000,
       preferredMajor: initialData?.preferredMajor ?? '',
-      preferredCountry: initialData?.preferredCountry ?? '',
+      firstName: initialData?.firstName ?? '',
+      lastName: initialData?.lastName ?? '',
+      dreamJobTitle: initialData?.dreamJobTitle ?? '',
+      careerGoals: initialData?.careerGoals ?? [],
+      hobbies: initialData?.hobbies ?? [],
+      preferredLearningStyle: initialData?.preferredLearningStyle ?? '',
     },
   })
 
   const onSubmit = async (values: ProfileFormValues) => {
-    const payload = {
-      ...values,
+    try {
+      await api.patch('/user/profile', values)
+      toast.success('Profile updated successfully')
+      await fetchProfile()
+    } catch (error) {
+      toast.error('Failed to update profile')
     }
-    await api.patch('/user/profile', payload)
-    toast.success('Profile saved')
-    await fetchProfile()
   }
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-      <Tabs defaultValue="academics">
-        <TabsList>
+      <Tabs defaultValue="academics" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
           <TabsTrigger value="academics">Academics</TabsTrigger>
+          <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="financials">Financials</TabsTrigger>
-          <TabsTrigger value="interests">Interests</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="academics" className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">GPA</label>
-            <Input
-              type="number"
-              step="0.01"
-              placeholder="e.g., 3.75"
-              {...form.register('gpa', { valueAsNumber: true })}
-            />
-            {form.formState.errors.gpa && (
-              <p className="text-sm text-destructive mt-1">{form.formState.errors.gpa.message as string}</p>
-            )}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">SAT</label>
-              <Input type="number" placeholder="e.g., 1420" {...form.register('satScore', { valueAsNumber: true })} />
-              {form.formState.errors.satScore && (
-                <p className="text-sm text-destructive mt-1">{form.formState.errors.satScore.message as string}</p>
-              )}
-            </div>
-            <div>
-              <label className="text-sm font-medium">ACT</label>
-              <Input type="number" placeholder="e.g., 32" {...form.register('actScore', { valueAsNumber: true })} />
-              {form.formState.errors.actScore && (
-                <p className="text-sm text-destructive mt-1">{form.formState.errors.actScore.message as string}</p>
-              )}
-            </div>
-          </div>
+        <TabsContent value="academics">
+          <Card>
+            <CardHeader>
+              <CardTitle>Academic Profile</CardTitle>
+              <CardDescription>Your stats help us find realistic matches.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">GPA (4.0 Scale)</label>
+                  <Input 
+                    type="number" 
+                    step="0.01" 
+                    {...form.register('gpa', { valueAsNumber: true })} 
+                    placeholder="3.8"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Intended Major</label>
+                  <Input {...form.register('preferredMajor')} placeholder="Computer Science" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">SAT Score</label>
+                  <Input 
+                    type="number" 
+                    {...form.register('satScore', { valueAsNumber: true })} 
+                    placeholder="1400"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">ACT Score</label>
+                  <Input 
+                    type="number" 
+                    {...form.register('actScore', { valueAsNumber: true })} 
+                    placeholder="32"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="financials" className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Family Income (USD)</label>
-            <Input type="number" placeholder="e.g., 60000" {...form.register('familyIncome', { valueAsNumber: true })} />
-            {form.formState.errors.familyIncome && (
-              <p className="text-sm text-destructive mt-1">{form.formState.errors.familyIncome.message as string}</p>
-            )}
-          </div>
-          <div>
-            <label className="text-sm font-medium">Max Budget</label>
-            <div className="pt-2">
-              <Slider
-                min={0}
-                max={100000}
-                step={1000}
-                value={[form.watch('maxBudget') || 0]}
-                onValueChange={(v) => form.setValue('maxBudget', v[0])}
-              />
-            </div>
-            <div className="text-xs text-muted-foreground text-right">${((form.watch('maxBudget') || 0) / 1000).toFixed(0)}k / year</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <input type="checkbox" {...form.register('interestedInAid')} id="aid" />
-            <label htmlFor="aid" className="text-sm">I am interested in financial aid</label>
-          </div>
+        <TabsContent value="personal">
+          <Card>
+            <CardHeader>
+              <CardTitle>About You</CardTitle>
+              <CardDescription>Help universities understand who you are beyond grades.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Dream Job Title</label>
+                  <Input {...form.register('dreamJobTitle')} placeholder="e.g. AI Researcher" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Learning Style</label>
+                  <Select 
+                    value={form.watch('preferredLearningStyle') || ''} 
+                    onValueChange={(v) => form.setValue('preferredLearningStyle', v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select style" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Visual">Visual</SelectItem>
+                      <SelectItem value="Auditory">Auditory</SelectItem>
+                      <SelectItem value="Reading/Writing">Reading/Writing</SelectItem>
+                      <SelectItem value="Kinesthetic">Kinesthetic</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Career Goals</label>
+                <TagInput 
+                  value={form.watch('careerGoals') || []}
+                  onChange={(tags) => form.setValue('careerGoals', tags)}
+                  placeholder="Add a goal (e.g. Start a business)"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Hobbies & Interests</label>
+                <TagInput 
+                  value={form.watch('hobbies') || []}
+                  onChange={(tags) => form.setValue('hobbies', tags)}
+                  placeholder="Add a hobby (e.g. Robotics Club)"
+                />
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        <TabsContent value="interests" className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Preferred Major</label>
-            <Input placeholder="e.g., Computer Science" {...form.register('preferredMajor')} />
-            {form.formState.errors.preferredMajor && (
-              <p className="text-sm text-destructive mt-1">{form.formState.errors.preferredMajor.message as string}</p>
-            )}
-          </div>
-          <div>
-            <label className="text-sm font-medium">Preferred Country</label>
-            <Select value={form.watch('preferredCountry') || ''} onValueChange={(v) => form.setValue('preferredCountry', v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a country" />
-              </SelectTrigger>
-              <SelectContent>
-                {['', 'USA', 'UK', 'Canada', 'Australia', 'Germany', 'France', 'Netherlands'].map((c) => (
-                  <SelectItem key={c} value={c}>{c || 'Any'}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <TabsContent value="financials">
+          <Card>
+            <CardHeader>
+              <CardTitle>Financial Planning</CardTitle>
+              <CardDescription>Used to calculate affordability scores.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium">Max Annual Budget</label>
+                  <span className="text-primary font-bold text-lg">
+                    ${(form.watch('maxBudget') || 0).toLocaleString()}
+                  </span>
+                </div>
+                <Slider
+                  min={5000}
+                  max={100000}
+                  step={1000}
+                  value={[form.watch('maxBudget') || 50000]}
+                  onValueChange={(v) => form.setValue('maxBudget', v[0])}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Includes tuition, room, board, and living expenses.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
       <div className="flex justify-end">
-        <Button type="submit">Save Changes</Button>
+        <Button type="submit" size="lg" className="w-full md:w-auto">
+          Save Profile
+        </Button>
       </div>
     </form>
   )

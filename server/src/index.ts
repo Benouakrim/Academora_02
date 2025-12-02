@@ -37,6 +37,24 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
+// Health check / Root route
+app.get('/', (_req, res) => {
+  res.json({
+    name: 'Academora API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      universities: '/api/universities',
+      user: '/api/user',
+      matching: '/api/matching',
+      financialAid: '/api/financial-aid',
+      reviews: '/api/reviews',
+      articles: '/api/articles',
+      admin: '/api/admin'
+    }
+  });
+});
+
 // Mount API routes
 app.use('/api', router);
 

@@ -17,11 +17,15 @@ async function syncRoleToClerk(clerkId: string, role: UserRole) {
 // Clerk webhook handler
 export const handleClerkWebhook = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    console.log('[Clerk Webhook] Received webhook request');
+    console.log('[Clerk Webhook] Headers:', req.headers);
+    
     const svixId = req.headers['svix-id'] as string | undefined;
     const svixTimestamp = req.headers['svix-timestamp'] as string | undefined;
     const svixSignature = req.headers['svix-signature'] as string | undefined;
 
     if (!svixId || !svixTimestamp || !svixSignature) {
+      console.error('[Clerk Webhook] Missing svix headers');
       throw new AppError(400, 'Missing svix headers');
     }
 
@@ -44,6 +48,9 @@ export const handleClerkWebhook = async (req: Request, res: Response, next: Next
     }
 
     const eventType = evt.type;
+
+    console.log('[Clerk Webhook] Event type:', eventType);
+    console.log('[Clerk Webhook] Event data:', JSON.stringify(evt.data, null, 2));
 
     switch (eventType) {
       case 'user.created':
@@ -71,17 +78,22 @@ export const handleClerkWebhook = async (req: Request, res: Response, next: Next
         // If email is missing (e.g., Clerk "Send example" payload), do not fail the webhook.
         // Update existing record if present; otherwise, skip creation and acknowledge.
         const existing = await prisma.user.findUnique({ where: { clerkId } });
+        console.log('[Clerk Webhook] Existing user found:', !!existing);
+        
         if (existing) {
           const updateData: any = { firstName, lastName, avatarUrl };
           if (email) updateData.email = email;
           await prisma.user.update({ where: { clerkId }, data: updateData });
+          console.log('[Clerk Webhook] User updated:', clerkId);
           
           // Sync DB role into Clerk publicMetadata for immediate client-side gating
           await syncRoleToClerk(clerkId, existing.role).catch(e => 
             console.error('Failed to sync role to Clerk:', e)
           );
         } else if (email) {
+          console.log('[Clerk Webhook] Creating new user with email:', email);
           const newUser = await prisma.user.create({ data: { clerkId, email, firstName, lastName, avatarUrl } });
+          console.log('[Clerk Webhook] User created successfully:', newUser.id);
           
           // Sync role to Clerk after creation
           await syncRoleToClerk(clerkId, newUser.role).catch(e => 
@@ -108,11 +120,14 @@ export const handleClerkWebhook = async (req: Request, res: Response, next: Next
       }
       default:
         // Non-user events ignored gracefully
+        console.log('[Clerk Webhook] Ignoring event type:', eventType);
         break;
     }
 
+    console.log('[Clerk Webhook] Processing completed successfully');
     res.status(200).json({ success: true });
   } catch (err) {
+    console.error('[Clerk Webhook] Error:', err);
     next(err);
   }
 };

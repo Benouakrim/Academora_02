@@ -1,139 +1,123 @@
-import { Link, NavLink } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { UserButton, useAuth, useUser } from '@clerk/clerk-react'
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useUserStore } from '@/store/useUserStore'
-import { Menu } from 'lucide-react'
+import { Menu, Sparkles, Settings, LayoutDashboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { useState } from 'react'
-
-const navItems = [
-  { to: '/search', label: 'Universities' },
-  { to: '/blog', label: 'Blog' }, // New link
-  { to: '/compare', label: 'Compare' },
-]
+import { motion } from 'framer-motion'
+import AdminMenu from './AdminMenu'
+import UserMenu from './UserMenu'
 
 export default function Navbar() {
   const { isSignedIn } = useAuth()
   const { user } = useUser()
   const { profile, fetchProfile } = useUserStore()
+  
+  const [showAdminMenu, setShowAdminMenu] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+
   useEffect(() => {
     if (isSignedIn && !profile) {
       fetchProfile().catch(() => {})
     }
   }, [isSignedIn, profile, fetchProfile])
-  const role = user?.publicMetadata?.role as string | undefined
-  const isAdmin = (
-    role === 'admin' ||
-    (user?.publicMetadata?.isAdmin as boolean | undefined) === true ||
-    (profile?.role?.toUpperCase?.() === 'ADMIN')
-  )
-  const [isOpen, setIsOpen] = useState(false)
+
+  // Check admin status from Clerk metadata OR DB profile
+  const isAdmin = 
+    user?.publicMetadata?.role === 'admin' || 
+    profile?.role === 'ADMIN';
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Logo */}
-        <Link to="/" className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-brand flex items-center justify-center text-white font-bold">
-            A
+    <>
+      <motion.nav
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="sticky top-0 z-40 w-full border-b border-white/20 bg-white/80 dark:bg-black/80 backdrop-blur-md shadow-sm"
+      >
+        {/* Gradient Border Bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          {/* Left: Logo & Menu Triggers */}
+          <div className="flex items-center gap-4">
+            {isSignedIn && !isAdmin && (
+              <Button variant="ghost" size="icon" onClick={() => setShowUserMenu(true)} className="md:hidden">
+                <Menu className="h-5 w-5" />
+              </Button>
+            )}
+            {isAdmin && (
+              <Button variant="ghost" size="icon" onClick={() => setShowAdminMenu(true)} className="text-primary">
+                <Settings className="h-5 w-5" />
+              </Button>
+            )}
+
+            <Link to="/" className="flex items-center gap-2 group">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary to-accent rounded-lg blur opacity-40 group-hover:opacity-75 transition-opacity" />
+                <div className="relative h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary-700 flex items-center justify-center text-white font-bold shadow-lg">
+                  A
+                </div>
+              </div>
+              <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary-700 to-primary-500 dark:from-white dark:to-gray-300">
+                AcademOra
+              </span>
+            </Link>
           </div>
-          <span className="font-bold text-xl tracking-tight">AcademOra</span>
-        </Link>
 
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex items-center gap-6">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `text-sm font-medium transition-colors hover:text-primary ${
-                  isActive ? 'text-primary' : 'text-muted-foreground'
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+          {/* Center: Navigation */}
+          <div className="hidden md:flex items-center gap-8">
+            {[
+              { to: '/search', label: 'Universities' },
+              { to: '/compare', label: 'Compare' },
+              { to: '/blog', label: 'Insights' },
+            ].map((link) => (
+              <Link 
+                key={link.to} 
+                to={link.to}
+                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors relative group"
+              >
+                {link.label}
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
+              </Link>
+            ))}
+          </div>
 
-        {/* Desktop Auth */}
-        <div className="hidden md:flex items-center gap-3">
-          {!isSignedIn ? (
-            <>
-              <Link to="/sign-in">
-                <Button variant="ghost" size="sm">Sign In</Button>
-              </Link>
-              <Link to="/sign-up">
-                <Button size="sm" className="bg-gradient-brand border-0 hover:opacity-90 transition-opacity">
-                  Get Started
-                </Button>
-              </Link>
-            </>
-          ) : (
-            <div className="flex items-center gap-3">
-              <Link to="/dashboard">
-                <Button variant="ghost" size="sm">Dashboard</Button>
-              </Link>
-              {isAdmin && (
-                <Link to="/admin">
-                  <Button variant="ghost" size="sm">Admin</Button>
+          {/* Right: Auth Actions */}
+          <div className="flex items-center gap-3">
+            {!isSignedIn ? (
+              <>
+                <Link to="/sign-in">
+                  <Button variant="ghost" className="font-medium">Sign In</Button>
                 </Link>
-              )}
-              <UserButton />
-            </div>
-          )}
+                <Link to="/sign-up">
+                  <Button className="bg-gradient-brand shadow-lg shadow-primary/20 border-0">
+                    Get Started <Sparkles className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Link to="/dashboard">
+                  <Button variant="ghost" size="sm" className="hidden md:flex">
+                    <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+                  </Button>
+                </Link>
+                <UserButton 
+                  appearance={{
+                    elements: {
+                      avatarBox: "w-9 h-9 ring-2 ring-primary/20 hover:ring-primary/50 transition-all"
+                    }
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </div>
+      </motion.nav>
 
-        {/* Mobile Menu */}
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild className="md:hidden">
-            <Button variant="ghost" size="icon">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right">
-            <div className="flex flex-col gap-4 mt-8">
-              {navItems.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setIsOpen(false)}
-                  className="text-lg font-medium py-2 hover:text-primary transition-colors"
-                >
-                  {item.label}
-                </Link>
-              ))}
-              <div className="h-px bg-border my-2" />
-              {!isSignedIn ? (
-                <div className="flex flex-col gap-2">
-                  <Link to="/sign-in" onClick={() => setIsOpen(false)}>
-                    <Button variant="outline" className="w-full">Sign In</Button>
-                  </Link>
-                  <Link to="/sign-up" onClick={() => setIsOpen(false)}>
-                    <Button className="w-full bg-gradient-brand">Get Started</Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <Link to="/dashboard" onClick={() => setIsOpen(false)}>
-                    <Button className="w-full">Dashboard</Button>
-                  </Link>
-                  {isAdmin && (
-                    <Link to="/admin" onClick={() => setIsOpen(false)}>
-                      <Button variant="outline" className="w-full">Admin</Button>
-                    </Link>
-                  )}
-                  <div className="flex justify-center py-2">
-                    <UserButton />
-                  </div>
-                </div>
-              )}
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
-    </header>
+      <AdminMenu isOpen={showAdminMenu} onToggle={() => setShowAdminMenu(false)} />
+      <UserMenu isOpen={showUserMenu} onToggle={() => setShowUserMenu(false)} />
+    </>
   )
 }

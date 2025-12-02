@@ -5,23 +5,43 @@ const prisma = new PrismaClient();
 
 export class UniversityService {
   static async getAll(filters: any) {
-    const { q, country, maxTuition, minGpa, page = 1 } = filters;
+    const { q, search, country, maxTuition, minGpa, climate, setting, major, page = 1 } = filters;
     const where: any = {};
 
-    if (q) {
+    // Support both 'q' and 'search' parameters
+    const searchTerm = q || search;
+    if (searchTerm) {
       where.OR = [
-        { name: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { description: { contains: searchTerm, mode: 'insensitive' } },
       ];
     }
     if (country) {
       where.country = country;
     }
     if (maxTuition !== undefined) {
-      where.tuitionOutState = { lte: Number(maxTuition) };
+      // Use AND with nested OR for tuition fields
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { tuitionOutState: { lte: Number(maxTuition) } },
+            { tuitionInternational: { lte: Number(maxTuition) } },
+          ],
+        },
+      ];
     }
     if (minGpa !== undefined) {
       where.minGpa = { lte: Number(minGpa) };
+    }
+    if (climate) {
+      where.climate = climate;
+    }
+    if (setting) {
+      where.setting = setting;
+    }
+    if (major) {
+      where.majors = { has: major };
     }
 
     const take = 20;

@@ -1,3 +1,5 @@
+// server/prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -33,6 +35,30 @@ enum ReviewStatus {
   REJECTED
 }
 
+enum InstitutionType {
+  PUBLIC
+  PRIVATE_NON_PROFIT
+  PRIVATE_FOR_PROFIT
+}
+
+enum CampusSetting {
+  URBAN
+  SUBURBAN
+  RURAL
+}
+
+enum AcademicCalendar {
+  SEMESTER
+  QUARTER
+  TRIMESTER
+}
+
+enum TestPolicy {
+  REQUIRED
+  TEST_OPTIONAL
+  TEST_BLIND
+}
+
 // --- Core Models ---
 
 model User {
@@ -43,13 +69,21 @@ model User {
   lastName  String?
   avatarUrl String?
 
-  // Academic Profile (For Matching)
+  // --- Extended Academic Profile (Legacy Port) ---
   gpa            Float?
   satScore       Int?
   actScore       Int?
   maxBudget      Int? // Annual budget
   preferredMajor String?
-
+  
+  // New Legacy Fields
+  dreamJobTitle          String?
+  careerGoals            String[] // Legacy: text[]
+  preferredLearningStyle String?
+  personalityType        String?
+  hobbies                String[]
+  languagesSpoken        String[]
+  
   role UserRole @default(USER)
 
   // Relations
@@ -69,10 +103,12 @@ model University {
   id           String  @id @default(uuid())
   slug         String  @unique
   name         String
+  shortName    String? // Legacy: short_name
   description  String? @db.Text
   logoUrl      String?
   heroImageUrl String?
   websiteUrl   String?
+  established  Int?    // Legacy: established_year
 
   // --- Location & Contact ---
   address   String?
@@ -82,12 +118,17 @@ model University {
   country   String  @default("USA")
   latitude  Float?
   longitude Float?
+  
+  // Legacy Location Fields
+  climateZone         String?
+  nearestAirport      String?
+  region              String? // E.g. "Northeast"
 
   // --- Classification ---
-  type                 String? // e.g., "Public", "Private"
+  type                 InstitutionType? // Legacy: institution_type
   classification       String? // e.g., "Research University"
   religiousAffiliation String?
-  setting              String? // e.g., "Urban", "Suburban", "Rural"
+  setting              CampusSetting?   // Legacy: campus_setting
   campusSizeAcres      Int?
 
   // --- Admissions Stats ---
@@ -96,30 +137,35 @@ model University {
   commonAppAccepted     Boolean   @default(false)
   applicationDeadline   DateTime?
   earlyDecisionDeadline DateTime?
-
-  // --- Academic Requirements ---
-  minGpa         Float? // e.g. 3.0
-  avgGpa         Float? // e.g. 3.7
-  satMath25      Int?
-  satMath75      Int?
-  satVerbal25    Int?
-  satVerbal75    Int?
-  actComposite25 Int?
-  actComposite75 Int?
-  avgSatScore    Int? // Calculated average
-  avgActScore    Int? // Calculated average
+  
+  // Legacy Admissions Fields
+  testPolicy            TestPolicy? // Legacy: standardized_test_policy
+  minGpa                Float?
+  avgGpa                Float?
+  satMath25             Int?
+  satMath75             Int?
+  satVerbal25           Int?
+  satVerbal75           Int?
+  actComposite25        Int?
+  actComposite75        Int?
+  avgSatScore           Int?
+  avgActScore           Int?
+  internationalEngReqs  Json?     // Legacy: international_english_reqs (toefl/ielts)
 
   // --- Costs & Financials ---
-  tuitionInState   Int?
-  tuitionOutState  Int?
-  roomAndBoard     Int?
-  booksAndSupplies Int?
-  costOfLiving     Int?
-
+  tuitionInState        Int?
+  tuitionOutState       Int?
+  tuitionInternational  Int?      // Legacy: tuition_international
+  roomAndBoard          Int?
+  booksAndSupplies      Int?
+  costOfLiving          Int?      // Legacy: cost_of_living_est
+  
   // --- Financial Aid ---
-  percentReceivingAid Float? // 0.0 to 1.0
-  averageGrantAid     Int?
-  averageNetPrice     Int?
+  percentReceivingAid   Float?    // 0.0 to 1.0
+  averageGrantAid       Int?
+  averageNetPrice       Int?
+  scholarshipsIntl      Boolean   @default(false) // Legacy: scholarships_international
+  needBlindAdmission    Boolean   @default(false) // Legacy: need_blind_admission
 
   // --- Student Body ---
   studentPopulation       Int?
@@ -128,24 +174,34 @@ model University {
   studentFacultyRatio     Float?
   percentMale             Float?
   percentFemale           Float?
-  diversityScore          Float? // 0.0 to 1.0
+  percentInternational    Float?    // Legacy: percentage_international
+  diversityScore          Float?    // 0.0 to 1.0
 
   // --- Outcomes ---
   graduationRate        Float?
   retentionRate         Float?
-  employmentRate        Float?
+  employmentRate        Float?    // Legacy: employment_rate_6mo
   averageStartingSalary Int?
+  
+  // Legacy Future/Outcome Fields
+  internshipSupport     Int?      // 1-5 scale
+  alumniNetwork         Int?      // 1-5 scale
+  visaDurationMonths    Int?      // Legacy: post_study_work_visa_months
 
-  // --- Campus Life & Sports ---
-  sportsDivision   String? // e.g., "NCAA Division I"
-  hasHousing       Boolean @default(true)
-  studentLifeScore Float? // 0.0 to 5.0 (Generated metric)
-  safetyRating     Float? // 0.0 to 5.0
-  partySceneRating Float? // 0.0 to 5.0
-
-  // --- Metadata & Arrays ---
-  popularMajors String[]
-  rankings      Json? // Store detailed ranking data { "usNews": 5, "forbes": 12 }
+  // --- Campus Life & Academics ---
+  academicCalendar      AcademicCalendar? // Legacy: academic_calendar
+  sportsDivision        String?
+  hasHousing            Boolean @default(true)
+  studentLifeScore      Float?    // 0.0 to 5.0
+  safetyRating          Float?    // 0.0 to 5.0
+  partySceneRating      Float?    // 0.0 to 5.0
+  
+  // Arrays & Metadata
+  popularMajors         String[]
+  degreeLevels          String[]  // Legacy: degree_levels_offered
+  languages             String[]  // Legacy: languages_of_instruction
+  studentLifeTags       String[]  // Legacy: student_life_tags
+  rankings              Json?     // { "usNews": 5, "forbes": 12 }
 
   // --- Relations ---
   savedBy SavedUniversity[]
@@ -169,7 +225,7 @@ model SavedUniversity {
   universityId String
 
   status ApplicationStatus @default(PLANNED)
-  notes  String?           @db.Text
+  notes  String? @db.Text
 
   createdAt DateTime @default(now())
 
@@ -178,17 +234,16 @@ model SavedUniversity {
 
 model Comparison {
   id     String @id @default(uuid())
-  name   String // e.g., "Ivy League vs Public"
+  name   String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
-  // Stores IDs of universities in this comparison
   universityIds String[]
 
   createdAt DateTime @default(now())
 }
 
-// --- Content Management System ---
+// --- Content Management System (Restored) ---
 
 model Category {
   id          String    @id @default(uuid())
@@ -200,6 +255,15 @@ model Category {
   createdAt DateTime @default(now())
 }
 
+model Tag {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  articles  Article[]
+
+  createdAt DateTime @default(now())
+}
+
 model Article {
   id            String  @id @default(uuid())
   slug          String  @unique
@@ -207,20 +271,21 @@ model Article {
   excerpt       String? @db.Text
   content       String  @db.Text
   featuredImage String?
-
-  status      ArticleStatus @default(DRAFT)
-  publishedAt DateTime?
-
-  // --- SEO ---
+  status        ArticleStatus @default(DRAFT)
+  publishedAt   DateTime?
+  
+  // SEO
   metaTitle       String?
   metaDescription String?
 
-  // --- Relations ---
+  // Relations
   authorId String
   author   User   @relation(fields: [authorId], references: [id])
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
+  
+  tags      Tag[]
 
   comments Comment[]
 
@@ -241,7 +306,6 @@ model Comment {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Threading
   parentId String?
   parent   Comment?  @relation("CommentThread", fields: [parentId], references: [id])
   replies  Comment[] @relation("CommentThread")
@@ -254,7 +318,7 @@ model Review {
   id     String @id @default(uuid())
   rating Float // Overall rating 1-5
 
-  // --- Detailed Breakdown ---
+  // Detailed Breakdown
   academicRating Float?
   campusRating   Float?
   socialRating   Float?
@@ -273,7 +337,7 @@ model Review {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([userId, universityId]) // One review per user per university
+  @@unique([userId, universityId])
   @@index([universityId])
   @@index([status])
 }

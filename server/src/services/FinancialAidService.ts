@@ -1,100 +1,111 @@
 import { PrismaClient } from '@prisma/client';
 import { create, all } from 'mathjs';
 import { AppError } from '../utils/AppError';
+import { PredictRequest } from '../validation/financialAidSchemas';
 
 const prisma = new PrismaClient();
 const math = create(all, { number: 'BigNumber', precision: 64 });
 
-export interface FinancialAidInput {
-  universityId: string;
-  familyIncome: number;
-  gpa: number;
-  satScore?: number;
-  inState: boolean;
-}
-
-export interface FinancialAidResult {
-  tuition: number;
-  housing: number;
-  grossCost: number;
-  efc: number;
-  needAid: number;
-  meritAid: number;
-  totalAid: number;
-  netPrice: number;
-  breakdown: string;
-}
-
 export class FinancialAidService {
-  static async predict(data: FinancialAidInput): Promise<FinancialAidResult> {
-    const { universityId, familyIncome, gpa, satScore, inState } = data;
+  static async predict(data: PredictRequest) {
+    const { universityId, familyIncome, gpa, satScore, residency } = data;
 
-    const university = await prisma.university.findUnique({ where: { id: universityId } });
-    if (!university) throw new AppError(404, 'University not found');
+    const uni = await prisma.university.findUnique({ where: { id: universityId } });
+    if (!uni) throw new AppError(404, 'University not found');
 
-    // --- 1. Define Variables for MathJS ---
-    const scope = {
-      income: familyIncome,
-      gpa: gpa,
-      sat: satScore || 0,
-      tuition: inState ? (university.tuitionInState || 50000) : (university.tuitionOutState || 50000),
-      housing: (university.roomAndBoard || 0) + (university.costOfLiving || 0),
-      avgGrant: university.averageGrantAid || 15000,
-      percentMet: university.percentReceivingAid || 0.6,
-      uniAvgGpa: university.avgGpa || 3.5,
-      uniAvgSat: university.avgSatScore || 1200
-    };
+    // --- 1. Determine Costs based on Residency ---
+    let tuition = uni.tuitionOutState || 50000;
+    
+    if (residency === 'in-state') {
+      tuition = uni.tuitionInState || tuition;
+    } else if (residency === 'international') {
+      // Use specific international tuition if available, otherwise fallback to out-of-state
+      tuition = uni.tuitionInternational || uni.tuitionOutState || 50000;
+    }
 
-    // --- 2. Calculate Gross Cost ---
-    // Formula: Tuition + Housing
-    const grossCost = math.evaluate('tuition + housing', scope);
+    const housing = (uni.roomAndBoard || 0) + (uni.costOfLiving || 0);
+    const books = uni.booksAndSupplies || 1200;
+    const grossCost = tuition + housing + books;
 
-    // --- 3. Calculate EFC (Simplified Federal Model) ---
-    // Using mathjs expressions for clean logic
-    let efcFormula = '0';
-    if (familyIncome > 90000) {
-      efcFormula = '17100 + (income - 90000) * 0.47';
-    } else if (familyIncome > 60000) {
-      efcFormula = '6600 + (income - 60000) * 0.35';
+    // --- 2. Check Eligibility (The "Legacy" Logic) ---
+    // If international and school doesn't give aid to them, stop calculation early (mostly)
+    const isEligibleForAid = residency !== 'international' || uni.scholarshipsIntl;
+    
+    if (!isEligibleForAid) {
+      return {
+        tuition,
+        housing,
+        grossCost,
+        efc: grossCost, // You pay full price
+        needAid: 0,
+        meritAid: 0,
+        totalAid: 0,
+        netPrice: grossCost,
+        breakdown: "This university does not typically offer financial aid to international students.",
+        eligibilityWarning: true
+      };
+    }
+
+    // --- 3. Calculate EFC (Estimated Family Contribution) ---
+    // Simplified Federal Methodology
+    let efc = 0;
+    if (familyIncome > 120000) {
+      efc = 25000 + (familyIncome - 120000) * 0.40;
+    } else if (familyIncome > 70000) {
+      efc = 8000 + (familyIncome - 70000) * 0.30;
     } else if (familyIncome > 30000) {
-      efcFormula = '(income - 30000) * 0.22';
+      efc = (familyIncome - 30000) * 0.20;
     }
     
-    const efcRaw = math.evaluate(efcFormula, scope);
-    // EFC cannot exceed Gross Cost
-    const efc = math.min(efcRaw, grossCost);
+    // EFC cap cannot exceed gross cost
+    efc = Math.min(efc, grossCost);
 
     // --- 4. Calculate Need-Based Aid ---
-    // Need = Gross - EFC. Aid = Need * % Met by Uni
-    const needRaw = math.max(0, math.subtract(grossCost, efc));
-    const needAid = math.multiply(needRaw, scope.percentMet);
+    // Financial Need = Gross Cost - EFC
+    // Grant Amount = Need * (Percent of Need Met by Uni)
+    const financialNeed = Math.max(0, grossCost - efc);
+    const percentMet = uni.percentReceivingAid || 0.7; // Default to 70% if data missing
+    const needAid = Math.round(financialNeed * percentMet);
 
     // --- 5. Calculate Merit-Based Aid ---
-    // Merit Multiplier: 1.0 (Average) + 0.2 for GPA match + 0.2 for SAT match
-    let meritMultiplier = 1.0;
-    if (gpa >= scope.uniAvgGpa) meritMultiplier += 0.2;
-    if (scope.sat >= scope.uniAvgSat) meritMultiplier += 0.2;
+    // Bonus for high stats relative to school average
+    let meritAid = 0;
+    const uniAvgGpa = uni.avgGpa || 3.5;
+    const uniAvgSat = uni.avgSatScore || 1200;
 
-    // Merit = (Average Grant * 0.5) * Multiplier
-    const baseMerit = math.multiply(scope.avgGrant, 0.5);
-    const meritAid = math.multiply(baseMerit, meritMultiplier);
+    // Merit Multiplier
+    let multiplier = 0;
+    if (gpa >= uniAvgGpa + 0.3) multiplier += 0.5; // Strong GPA
+    if (satScore && satScore >= uniAvgSat + 100) multiplier += 0.5; // Strong SAT
+
+    if (multiplier > 0) {
+      // Base merit grant approx 20% of tuition, scaled by multiplier
+      const baseMerit = (uni.averageGrantAid || 15000) * 0.5; 
+      meritAid = Math.round(baseMerit * multiplier);
+    }
 
     // --- 6. Final Totals ---
-    // Total Aid = Need + Merit (Capped at Gross Cost)
-    const totalAidRaw = math.add(needAid, meritAid);
-    const totalAid = math.min(totalAidRaw, grossCost);
-    const netPrice = math.subtract(grossCost, totalAid);
+    // Total aid cannot exceed Gross Cost
+    const totalAid = Math.min(needAid + meritAid, grossCost);
+    const netPrice = grossCost - totalAid;
+
+    // Generate descriptive text
+    let breakdown = `Based on an income of $${familyIncome.toLocaleString()}, your estimated EFC is $${Math.round(efc).toLocaleString()}.`;
+    if (uni.needBlindAdmission && residency !== 'international') {
+      breakdown += " This school has Need-Blind admission policies.";
+    }
 
     return {
-      tuition: Number(scope.tuition),
-      housing: Number(scope.housing),
-      grossCost: Number(grossCost),
-      efc: Number(efc),
-      needAid: Number(needAid),
-      meritAid: Number(meritAid),
-      totalAid: Number(totalAid),
-      netPrice: Number(netPrice),
-      breakdown: `Estimated using Federal Methodology. EFC: $${Math.round(Number(efc))}`
+      tuition,
+      housing,
+      grossCost,
+      efc: Math.round(efc),
+      needAid,
+      meritAid,
+      totalAid,
+      netPrice,
+      breakdown,
+      eligibilityWarning: false
     };
   }
 }

@@ -1,5 +1,7 @@
 import { Link, NavLink } from 'react-router-dom'
-import { UserButton, useAuth } from '@clerk/clerk-react'
+import { UserButton, useAuth, useUser } from '@clerk/clerk-react'
+import { useEffect } from 'react'
+import { useUserStore } from '@/store/useUserStore'
 import { Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
@@ -13,6 +15,19 @@ const navItems = [
 
 export default function Navbar() {
   const { isSignedIn } = useAuth()
+  const { user } = useUser()
+  const { profile, fetchProfile } = useUserStore()
+  useEffect(() => {
+    if (isSignedIn && !profile) {
+      fetchProfile().catch(() => {})
+    }
+  }, [isSignedIn, profile, fetchProfile])
+  const role = user?.publicMetadata?.role as string | undefined
+  const isAdmin = (
+    role === 'admin' ||
+    (user?.publicMetadata?.isAdmin as boolean | undefined) === true ||
+    (profile?.role?.toUpperCase?.() === 'ADMIN')
+  )
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -61,6 +76,11 @@ export default function Navbar() {
               <Link to="/dashboard">
                 <Button variant="ghost" size="sm">Dashboard</Button>
               </Link>
+              {isAdmin && (
+                <Link to="/admin">
+                  <Button variant="ghost" size="sm">Admin</Button>
+                </Link>
+              )}
               <UserButton />
             </div>
           )}
@@ -100,6 +120,11 @@ export default function Navbar() {
                   <Link to="/dashboard" onClick={() => setIsOpen(false)}>
                     <Button className="w-full">Dashboard</Button>
                   </Link>
+                  {isAdmin && (
+                    <Link to="/admin" onClick={() => setIsOpen(false)}>
+                      <Button variant="outline" className="w-full">Admin</Button>
+                    </Link>
+                  )}
                   <div className="flex justify-center py-2">
                     <UserButton />
                   </div>

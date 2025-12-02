@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { clerkClient } from '@clerk/express';
+import { PrismaClient, UserRole } from '@prisma/client';
 import { AppError } from '../utils/AppError';
+
+const prisma = new PrismaClient();
 
 export const requireAdmin = async (
   req: Request,
@@ -15,16 +17,13 @@ export const requireAdmin = async (
       throw new AppError(401, 'Unauthorized: Please log in');
     }
 
-    const claims = auth.sessionClaims || {};
-    let userRole = claims?.metadata?.role || claims?.publicMetadata?.role;
+    // Source of truth: query DB for user role by Clerk ID
+    const user = await prisma.user.findUnique({
+      where: { clerkId: auth.userId },
+      select: { role: true },
+    });
 
-    if (!userRole) {
-      // Fallback: fetch user from Clerk to read publicMetadata
-      const user = await clerkClient.users.getUser(auth.userId);
-      userRole = (user.publicMetadata as any)?.role as string | undefined;
-    }
-
-    if (userRole !== 'admin') {
+    if (!user || user.role !== UserRole.ADMIN) {
       throw new AppError(403, 'Forbidden: Admin access required');
     }
 

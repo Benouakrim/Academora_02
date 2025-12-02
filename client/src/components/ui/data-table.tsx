@@ -1,5 +1,3 @@
-"use no memo";
-
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { flexRender, getCoreRowModel, useReactTable, getPaginationRowModel, getSortedRowModel } from "@tanstack/react-table"
 import { useState } from "react"

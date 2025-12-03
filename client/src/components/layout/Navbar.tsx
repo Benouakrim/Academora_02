@@ -70,6 +70,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-8">
             {[
               { to: '/search', label: 'Universities' },
+              { to: '/groups', label: 'Collections' },
               { to: '/compare', label: 'Compare' },
               { to: '/blog', label: 'Insights' },
             ].map((link) => (

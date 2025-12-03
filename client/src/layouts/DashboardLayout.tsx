@@ -6,6 +6,7 @@ const nav = [
   { to: '/dashboard/saved', label: 'Saved List' },
   { to: '/dashboard/profile', label: 'Profile' },
   { to: '/dashboard/referrals', label: 'Referrals' },
+  { to: '/dashboard/claims', label: 'My Claims' },
 ]
 
 export default function DashboardLayout() {

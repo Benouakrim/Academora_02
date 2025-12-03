@@ -54,7 +54,8 @@ router.get('/sync-status', requireAdmin, async (req: Request, res: Response, nex
 // POST /api/admin/reconcile - Manual trigger for Clerk -> Neon reconciliation (heavy operation)
 router.post('/reconcile', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await SyncService.reconcileClerkToNeon();
+        const { cleanupOrphaned } = req.body;
+        const result = await SyncService.reconcileClerkToNeon({ cleanupOrphaned });
         res.status(200).json({ status: 'success', message: 'Reconciliation process initiated.', data: result });
     } catch (err) {
         next(err);

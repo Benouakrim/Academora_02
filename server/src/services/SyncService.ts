@@ -35,12 +35,17 @@ export class SyncService {
 
   /**
    * Reconciliation: Fetches all Clerk users and creates/updates missing records in Neon.
+   * Also optionally cleans up orphaned Neon users that don't exist in Clerk.
    */
-  static async reconcileClerkToNeon() {
+  static async reconcileClerkToNeon(options?: { cleanupOrphaned?: boolean }) {
     console.log('[SyncService] Starting full Clerk-to-Neon reconciliation...');
-    let clerkUsers = await clerkClient.users.getUserList();
+    let clerkUsers = await clerkClient.users.getUserList({ limit: 500 });
     let createdCount = 0;
     let updatedCount = 0;
+    let rolesSynced = 0;
+    let deletedCount = 0;
+
+    const clerkUserIds = new Set(clerkUsers.data.map(u => u.id));
 
     for (const clerkUser of clerkUsers.data) {
       const email = clerkUser.emailAddresses.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress;
@@ -50,19 +55,19 @@ export class SyncService {
         continue;
       }
 
-      const neonUser = await prisma.user.findUnique({ where: { clerkId: clerkUser.id } });
-      const userRole = (clerkUser.publicMetadata.role as string)?.toUpperCase() as UserRole || UserRole.USER;
+      let neonUser = await prisma.user.findUnique({ where: { clerkId: clerkUser.id } });
+      const clerkRole = (clerkUser.publicMetadata.role as string)?.toUpperCase() as UserRole || UserRole.USER;
 
       if (!neonUser) {
         // Create missing Neon user
-        await prisma.user.create({
+        neonUser = await prisma.user.create({
           data: {
             clerkId: clerkUser.id,
             email: email,
             firstName: clerkUser.firstName || undefined,
             lastName: clerkUser.lastName || undefined,
             avatarUrl: clerkUser.imageUrl || undefined,
-            role: userRole,
+            role: clerkRole,
           },
         });
         createdCount++;
@@ -81,50 +86,176 @@ export class SyncService {
         updatedCount++;
       }
       
-      // Ensure Neon's role is correctly pushed back to Clerk
-      if (neonUser?.id) {
-          await SyncService.syncNeonToClerk(neonUser.id).catch(err => console.error('Failed to sync role during reconcile:', err));
+      // Ensure Neon's role is correctly pushed back to Clerk (Neon is source of truth for roles)
+      try {
+        const currentClerkRole = (clerkUser.publicMetadata.role as string)?.toUpperCase();
+        if (currentClerkRole !== neonUser.role) {
+          await clerkClient.users.updateUserMetadata(clerkUser.id, {
+            publicMetadata: { 
+              role: neonUser.role.toLowerCase(),
+              firstName: neonUser.firstName,
+              lastName: neonUser.lastName,
+            },
+          });
+          rolesSynced++;
+        }
+      } catch (err) {
+        console.error(`Failed to sync role for user ${neonUser.id}:`, err);
+      }
+    }
+
+    // Cleanup orphaned users if requested
+    if (options?.cleanupOrphaned) {
+      console.log('[SyncService] Cleaning up orphaned Neon users...');
+      const allNeonUsers = await prisma.user.findMany({
+        select: { id: true, clerkId: true, email: true },
+      });
+
+      for (const neonUser of allNeonUsers) {
+        if (!clerkUserIds.has(neonUser.clerkId)) {
+          console.log(`Deleting orphaned user: ${neonUser.email} (${neonUser.clerkId})`);
+          
+          // Delete user's related data first to avoid foreign key constraint violations
+          // 1. Delete articles authored by this user
+          await prisma.article.deleteMany({
+            where: { authorId: neonUser.id }
+          });
+          
+          // 2. Delete reviews by this user
+          await prisma.review.deleteMany({
+            where: { userId: neonUser.id }
+          });
+          
+          // 3. Delete comments by this user
+          await prisma.comment.deleteMany({
+            where: { userId: neonUser.id }
+          });
+          
+          // 4. Delete comparisons
+          await prisma.comparison.deleteMany({
+            where: { userId: neonUser.id }
+          });
+          
+          // 5. Delete university claims
+          await prisma.universityClaim.deleteMany({
+            where: { userId: neonUser.id }
+          });
+          
+          // 6. Delete referrals (as referrer or referred)
+          await prisma.referral.deleteMany({
+            where: { 
+              OR: [
+                { referrerId: neonUser.id },
+                { referredUserId: neonUser.id }
+              ]
+            }
+          });
+          
+          // 7. Delete notifications
+          await prisma.notification.deleteMany({
+            where: { userId: neonUser.id }
+          });
+          
+          // 8. Delete user badges
+          await prisma.userBadge.deleteMany({
+            where: { userId: neonUser.id }
+          });
+          
+          // 9. Delete financial profile (has CASCADE but being explicit)
+          await prisma.financialProfile.deleteMany({
+            where: { userId: neonUser.id }
+          });
+          
+          // 10. Delete saved universities (has CASCADE but being explicit)
+          await prisma.savedUniversity.deleteMany({
+            where: { userId: neonUser.id }
+          });
+          
+          // 11. Finally delete the user
+          await prisma.user.delete({ where: { id: neonUser.id } });
+          
+          console.log(`  ✓ Deleted user and all related data: ${neonUser.email}`);
+          deletedCount++;
+        }
       }
     }
     
-    console.log(`[SyncService] Reconciliation complete. Created: ${createdCount}, Updated: ${updatedCount}`);
-    return { created: createdCount, updated: updatedCount };
+    console.log(`[SyncService] Reconciliation complete. Created: ${createdCount}, Updated: ${updatedCount}, Roles Synced: ${rolesSynced}, Deleted: ${deletedCount}`);
+    return { created: createdCount, updated: updatedCount, rolesSynced, deleted: deletedCount };
   }
   
   /**
    * Health Check: Verifies data consistency between Neon and Clerk for a sample of users.
    */
   static async verifySyncStatus() {
-    // Check last 10 updated users for consistency
+    // Get all Neon users
     const neonUsers = await prisma.user.findMany({
-      take: 10,
-      orderBy: { updatedAt: 'desc' },
       select: { id: true, clerkId: true, email: true, role: true },
     });
 
-    const inconsistencies: { user: string, reason: string }[] = [];
+    // Get all Clerk users
+    const clerkUsersResponse = await clerkClient.users.getUserList({ limit: 500 });
+    const clerkUsers = clerkUsersResponse.data;
+    
+    const clerkUserMap = new Map(clerkUsers.map(u => [u.id, u]));
+    const neonClerkIdSet = new Set(neonUsers.map(u => u.clerkId));
+    
+    let missingInNeon = 0;
+    let missingInClerk = 0;
+    let roleMismatches = 0;
+    const sample: Array<{ clerkId: string; neonUser?: any; clerkUser?: any; issue?: string }> = [];
 
-    for (const neonUser of neonUsers) {
-      try {
-        const clerkUser = await clerkClient.users.getUser(neonUser.clerkId);
-        const clerkRole = (clerkUser.publicMetadata.role as string)?.toUpperCase();
-        
-        if (clerkRole !== neonUser.role) {
-          inconsistencies.push({
-            user: neonUser.email,
-            reason: `Role mismatch: Neon=${neonUser.role}, Clerk=${clerkRole}`,
+    // Check for users in Clerk but not in Neon
+    for (const clerkUser of clerkUsers) {
+      if (!neonClerkIdSet.has(clerkUser.id)) {
+        missingInNeon++;
+        if (sample.length < 5) {
+          sample.push({
+            clerkId: clerkUser.id,
+            clerkUser: { email: clerkUser.emailAddresses[0]?.emailAddress },
+            issue: `User exists in Clerk but not in Neon: ${clerkUser.emailAddresses[0]?.emailAddress}`,
           });
         }
-      } catch (err) {
-        inconsistencies.push({
-          user: neonUser.email,
-          reason: 'Clerk user not found or unreachable',
-        });
       }
     }
-    
-    return inconsistencies.length > 0 
-      ? { status: 'INCONSISTENT', inconsistencies }
-      : { status: 'SYNCED', inconsistencies: [] };
+
+    // Check for users in Neon but not in Clerk, and role mismatches
+    for (const neonUser of neonUsers) {
+      const clerkUser = clerkUserMap.get(neonUser.clerkId);
+      
+      if (!clerkUser) {
+        missingInClerk++;
+        if (sample.length < 5) {
+          sample.push({
+            clerkId: neonUser.clerkId,
+            neonUser: { email: neonUser.email },
+            issue: `User exists in Neon but not in Clerk: ${neonUser.email}`,
+          });
+        }
+      } else {
+        const clerkRole = (clerkUser.publicMetadata.role as string)?.toUpperCase() || 'USER';
+        if (clerkRole !== neonUser.role) {
+          roleMismatches++;
+          if (sample.length < 5) {
+            sample.push({
+              clerkId: neonUser.clerkId,
+              neonUser: { email: neonUser.email, role: neonUser.role },
+              clerkUser: { role: clerkRole },
+              issue: `Role mismatch for ${neonUser.email}: Neon=${neonUser.role}, Clerk=${clerkRole}`,
+            });
+          }
+        }
+      }
+    }
+
+    const healthy = missingInNeon === 0 && missingInClerk === 0 && roleMismatches === 0;
+
+    return {
+      healthy,
+      missingInNeon,
+      missingInClerk,
+      roleMismatches,
+      sample,
+    };
   }
 }

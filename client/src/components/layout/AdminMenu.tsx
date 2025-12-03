@@ -8,6 +8,8 @@ import {
   School,
   Settings,
   FolderKanban,
+  ShieldCheck,
+  Layers,
 } from 'lucide-react';
 
 interface AdminMenuProps {
@@ -23,6 +25,8 @@ export default function AdminMenu({ isOpen, onToggle }: AdminMenuProps) {
     { name: 'Universities', icon: School, path: '/admin/universities', description: 'Manage database' },
     { name: 'Groups', icon: FolderKanban, path: '/admin/groups', description: 'University collections' },
     { name: 'Articles', icon: FileText, path: '/admin/articles', description: 'Blog content' },
+    { name: 'Claims', icon: ShieldCheck, path: '/admin/claims', description: 'Ownership requests' },
+    { name: 'Micro-Content', icon: Layers, path: '/admin/micro-content', description: 'Quick tips & facts' },
     { name: 'Users', icon: Users, path: '/admin/users', description: 'User management' },
     { name: 'Settings', icon: Settings, path: '/admin/settings', description: 'System config' }
   ];

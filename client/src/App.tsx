@@ -40,6 +40,13 @@ const ReviewModerationPage = lazy(() => import('@/pages/admin/reviews/ReviewMode
 const AdminHealthPage = lazy(() => import('@/pages/admin/AdminHealthPage'));
 const AdminGroupsPage = lazy(() => import('@/pages/admin/AdminGroupsPage'));
 const GroupEditorPage = lazy(() => import('@/pages/admin/GroupEditorPage'));
+const AdminClaimsPage = lazy(() => import('@/pages/admin/AdminClaimsPage'));
+const AdminMicroContentPage = lazy(() => import('@/pages/admin/AdminMicroContentPage'));
+
+// User Pages
+const MyClaimsPage = lazy(() => import('@/pages/dashboard/MyClaimsPage'));
+const GroupsPage = lazy(() => import('@/pages/GroupsPage'));
+const GroupDetailPage = lazy(() => import('@/pages/GroupDetailPage'));
 
 export default function App() {
   return (
@@ -55,6 +62,8 @@ export default function App() {
               <Route path="blog/:slug" element={<ArticlePage />} />
               <Route path="university/:slug" element={<UniversityPage />} />
               <Route path="university-claims/claim" element={<UniversityClaimPage />} />
+              <Route path="groups" element={<GroupsPage />} />
+              <Route path="groups/:slug" element={<GroupDetailPage />} />
               <Route path="about" element={<StaticContentPage slug="about" />} />
               <Route path="contact" element={<StaticContentPage slug="contact" />} />
               <Route path="privacy" element={<StaticContentPage slug="privacy" />} />
@@ -70,6 +79,7 @@ export default function App() {
                 <Route path="saved" element={<SavedPage />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="referrals" element={<ReferralDashboardPage />} />
+                <Route path="claims" element={<MyClaimsPage />} />
                 <Route path="matching-engine" element={<MatchingEnginePage />} />
               </Route>
             </Route>
@@ -88,6 +98,8 @@ export default function App() {
                 <Route path="articles/new" element={<ArticleEditorPage />} />
                 <Route path="articles/edit/:id" element={<ArticleEditorPage />} />
                 <Route path="reviews" element={<ReviewModerationPage />} />
+                <Route path="claims" element={<AdminClaimsPage />} />
+                <Route path="micro-content" element={<AdminMicroContentPage />} />
                 <Route path="health" element={<AdminHealthPage />} />
               </Route>
             </Route>

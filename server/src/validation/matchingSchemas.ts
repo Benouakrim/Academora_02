@@ -20,10 +20,15 @@ export const matchRequestSchema = {
     // --- Lifestyle Preferences (New) ---
     preferredSetting: z.nativeEnum(CampusSetting).optional(),
     preferredClimate: z.enum(['Temperate', 'Tropical', 'Arid', 'Cold', 'Mediterranean', 'Maritime', 'Humid Subtropical', 'Continental']).optional(),
+    preferredDiversity: z.number().min(0).max(1).optional(), // Target diversity score 0-1
+    minSafetyRating: z.number().min(0).max(5).optional(), // Minimum acceptable safety rating
     
     // --- Future Goals (New) ---
     needsVisaSupport: z.boolean().default(false),
     minVisaMonths: z.number().optional(), // E.g., wants at least 24 months post-grad visa
+
+    // --- Matching Behavior ---
+    strictMatch: z.boolean().default(false), // If true, hard-filter dealbreakers (budget, visa)
 
     // --- Weights ---
     importanceFactors: z.object({

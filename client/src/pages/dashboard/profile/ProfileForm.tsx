@@ -85,7 +85,14 @@ export default function ProfileForm({ initialData }: Props) {
       gpa: initialData?.gpa ?? undefined,
       satScore: initialData?.satScore ?? undefined,
       actScore: initialData?.actScore ?? undefined,
-      maxBudget: initialData?.maxBudget ?? 50000,
+      maxBudget: initialData?.financialProfile?.maxBudget ?? initialData?.maxBudget ?? 50000,
+      householdIncome: initialData?.financialProfile?.householdIncome ?? undefined,
+      familySize: initialData?.financialProfile?.familySize ?? undefined,
+      savings: initialData?.financialProfile?.savings ?? undefined,
+      investments: initialData?.financialProfile?.investments ?? undefined,
+      expectedFamilyContribution: initialData?.financialProfile?.expectedFamilyContribution ?? undefined,
+      eligibleForPellGrant: initialData?.financialProfile?.eligibleForPellGrant ?? false,
+      eligibleForStateAid: initialData?.financialProfile?.eligibleForStateAid ?? false,
       preferredMajor: initialData?.preferredMajor ?? '',
       firstName: initialData?.firstName ?? '',
       lastName: initialData?.lastName ?? '',
@@ -213,7 +220,7 @@ export default function ProfileForm({ initialData }: Props) {
           <Card>
             <CardHeader>
               <CardTitle>Financial Planning</CardTitle>
-              <CardDescription>Used to calculate affordability scores.</CardDescription>
+              <CardDescription>Used to calculate affordability scores and financial aid estimates.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
@@ -233,6 +240,84 @@ export default function ProfileForm({ initialData }: Props) {
                 <p className="text-xs text-muted-foreground">
                   Includes tuition, room, board, and living expenses.
                 </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Household Income</label>
+                  <Input 
+                    type="number" 
+                    {...form.register('householdIncome', { valueAsNumber: true })} 
+                    placeholder="75000"
+                  />
+                  <p className="text-xs text-muted-foreground">Annual gross income</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Family Size</label>
+                  <Input 
+                    type="number" 
+                    {...form.register('familySize', { valueAsNumber: true })} 
+                    placeholder="4"
+                  />
+                  <p className="text-xs text-muted-foreground">Total household members</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Savings</label>
+                  <Input 
+                    type="number" 
+                    {...form.register('savings', { valueAsNumber: true })} 
+                    placeholder="25000"
+                  />
+                  <p className="text-xs text-muted-foreground">Available cash/savings</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Investments</label>
+                  <Input 
+                    type="number" 
+                    {...form.register('investments', { valueAsNumber: true })} 
+                    placeholder="50000"
+                  />
+                  <p className="text-xs text-muted-foreground">529, stocks, bonds, etc.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Expected Family Contribution (EFC)</label>
+                  <Input 
+                    type="number" 
+                    {...form.register('expectedFamilyContribution', { valueAsNumber: true })} 
+                    placeholder="12000"
+                  />
+                  <p className="text-xs text-muted-foreground">From FAFSA calculation</p>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="pellGrant"
+                    {...form.register('eligibleForPellGrant')}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <label htmlFor="pellGrant" className="text-sm font-medium cursor-pointer">
+                    Eligible for Pell Grant
+                  </label>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="stateAid"
+                    {...form.register('eligibleForStateAid')}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <label htmlFor="stateAid" className="text-sm font-medium cursor-pointer">
+                    Eligible for State Aid
+                  </label>
+                </div>
               </div>
             </CardContent>
           </Card>

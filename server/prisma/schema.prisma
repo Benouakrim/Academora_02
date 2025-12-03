@@ -73,7 +73,6 @@ model User {
   gpa            Float?
   satScore       Int?
   actScore       Int?
-  maxBudget      Int? // Annual budget
   preferredMajor String?
   
   // New Legacy Fields
@@ -87,11 +86,13 @@ model User {
   role UserRole @default(USER)
 
   // Relations
+  financialProfile  FinancialProfile?
   savedUniversities SavedUniversity[]
   comparisons       Comparison[]
   articles          Article[]
   reviews           Review[]
   comments          Comment[]
+  notifications     Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -204,6 +205,8 @@ model University {
   rankings              Json?     // { "usNews": 5, "forbes": 12 }
 
   // --- Relations ---
+  groups      UniversityGroup[] @relation("GroupMembership") // M:N relation
+  microContent MicroContent[] // 1:N relation
   savedBy SavedUniversity[]
   reviews Review[]
 
@@ -232,6 +235,27 @@ model SavedUniversity {
   @@unique([userId, universityId])
 }
 
+model FinancialProfile {
+  id String @id @default(uuid())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique // 1:1 relation to User
+
+  // Core Financials
+  maxBudget Int?        // Annual budget
+  householdIncome Int?
+  familySize Int?
+
+  // Extended Financials (from legacy schema)
+  savings Int?
+  investments Int?
+  expectedFamilyContribution Int?
+  eligibleForPellGrant Boolean @default(false)
+  eligibleForStateAid Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Comparison {
   id     String @id @default(uuid())
   name   String
@@ -241,6 +265,23 @@ model Comparison {
   universityIds String[]
 
   createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      String   // E.g., "SYSTEM", "REVIEW_APPROVED", "COMMENT_REPLY"
+  title     String
+  message   String   @db.Text
+  link      String?  // Internal link to redirect to (e.g., "/blog/article-1")
+  
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
 }
 
 // --- Content Management System (Restored) ---
@@ -310,6 +351,10 @@ model Comment {
   parent   Comment?  @relation("CommentThread", fields: [parentId], references: [id])
   replies  Comment[] @relation("CommentThread")
 
+  // Engagement Fields
+  upvotes   Int @default(0)
+  downvotes Int @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -328,6 +373,11 @@ model Review {
   content String       @db.Text
   status  ReviewStatus @default(PENDING)
 
+  // Engagement Fields
+  helpfulCount Int     @default(0)
+  verified     Boolean @default(false)
+  anonymous    Boolean @default(false)
+
   universityId String
   university   University @relation(fields: [universityId], references: [id], onDelete: Cascade)
 
@@ -340,4 +390,50 @@ model Review {
   @@unique([userId, universityId])
   @@index([universityId])
   @@index([status])
+}
+
+model UniversityGroup {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  description String?    @db.Text
+  logoUrl     String?
+  website     String?
+  memberCount Int        @default(0)
+
+  universities University[] @relation("GroupMembership") // M:N relation
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MicroContent {
+  id          String     @id @default(uuid())
+  university  University @relation(fields: [universityId], references: [id])
+  universityId String
+  
+  category    String     // e.g., "application_tips"
+  title       String
+  content     String     @db.Text
+  priority    Int        @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([universityId])
+}
+
+model StaticPage {
+  id               String    @id @default(uuid())
+  slug             String    @unique
+  title            String
+  content          String    @db.Text
+  
+  metaTitle        String?
+  metaDescription  String?   @db.Text
+
+  published        Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

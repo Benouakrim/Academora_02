@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
 import AdminMenu from './AdminMenu'
 import UserMenu from './UserMenu'
+import { NotificationBell } from './NotificationBell'
 
 export default function Navbar() {
   const { isSignedIn } = useAuth()
@@ -103,6 +104,7 @@ export default function Navbar() {
                     <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
                   </Button>
                 </Link>
+                <NotificationBell />
                 <UserButton 
                   appearance={{
                     elements: {

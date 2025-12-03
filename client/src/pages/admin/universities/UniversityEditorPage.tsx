@@ -55,7 +55,11 @@ export default function UniversityEditorPage() {
       <div>
         <h2 className="text-2xl font-semibold">{isEdit ? 'Edit University' : 'Add University'}</h2>
       </div>
-      <UniversityForm initialData={initialData} onSubmit={handleSubmit} />
+      <UniversityForm 
+        initialData={initialData} 
+        onSubmit={handleSubmit}
+        universityId={isEdit ? id : undefined}
+      />
     </div>
   )
 }

@@ -34,6 +34,8 @@ const ArticlesList = lazy(() => import('@/pages/admin/ArticlesList'));
 const ArticleEditorPage = lazy(() => import('@/pages/admin/articles/ArticleEditorPage'));
 const ReviewModerationPage = lazy(() => import('@/pages/admin/reviews/ReviewModerationPage'));
 const AdminHealthPage = lazy(() => import('@/pages/admin/AdminHealthPage'));
+const AdminGroupsPage = lazy(() => import('@/pages/admin/AdminGroupsPage'));
+const GroupEditorPage = lazy(() => import('@/pages/admin/GroupEditorPage'));
 
 export default function App() {
   return (
@@ -68,6 +70,9 @@ export default function App() {
                 <Route path="universities" element={<AdminUniversitiesPage />} />
                 <Route path="universities/new" element={<UniversityEditorPage />} />
                 <Route path="universities/:id" element={<UniversityEditorPage />} />
+                <Route path="groups" element={<AdminGroupsPage />} />
+                <Route path="groups/new" element={<GroupEditorPage />} />
+                <Route path="groups/:id" element={<GroupEditorPage />} />
                 <Route path="articles" element={<ArticlesList />} />
                 <Route path="articles/new" element={<ArticleEditorPage />} />
                 <Route path="articles/edit/:id" element={<ArticleEditorPage />} />

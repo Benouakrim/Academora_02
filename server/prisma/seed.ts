@@ -9,12 +9,16 @@ async function main() {
   const cleanup = [
     prisma.comment.deleteMany(),
     prisma.review.deleteMany(),
+    prisma.microContent.deleteMany(),
     prisma.savedUniversity.deleteMany(),
     prisma.comparison.deleteMany(),
     prisma.article.deleteMany(),
     prisma.category.deleteMany(),
     prisma.tag.deleteMany(),
+    prisma.staticPage.deleteMany(),
     prisma.university.deleteMany(),
+    prisma.universityGroup.deleteMany(),
+    prisma.financialProfile.deleteMany(),
     prisma.user.deleteMany(),
   ]
   
@@ -31,13 +35,28 @@ async function main() {
       role: UserRole.ADMIN,
       avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Admin",
       gpa: 4.0,
-      maxBudget: 50000,
       preferredMajor: "Computer Science",
       careerGoals: ["Software Engineer", "Entrepreneur"],
       hobbies: ["Coding", "Chess"],
     }
   })
   console.log(`👤 Created admin: ${adminUser.email}`)
+
+  // 2b. Create FinancialProfile for Admin User
+  await prisma.financialProfile.create({
+    data: {
+      userId: adminUser.id,
+      maxBudget: 50000,
+      householdIncome: 120000,
+      familySize: 4,
+      savings: 30000,
+      investments: 15000,
+      expectedFamilyContribution: 25000,
+      eligibleForPellGrant: false,
+      eligibleForStateAid: true,
+    }
+  })
+  console.log(`💰 Created financial profile for admin`)
 
   // 3. Seed CMS Content (Categories & Tags)
   const categories = [
@@ -409,9 +428,66 @@ async function main() {
         title: "Intense but rewarding",
         content: "MIT is exactly as hard as they say it is, but the opportunities are endless.",
         status: ReviewStatus.APPROVED,
+        helpfulCount: 42,
+        verified: true,
+        anonymous: false,
       }
     })
     console.log("⭐ Created sample review")
+  }
+
+  // 6. Seed UniversityGroup (Ivy League)
+  const ivyLeague = await prisma.universityGroup.create({
+    data: {
+      name: "Ivy League",
+      slug: "ivy-league",
+      description: "The eight private institutions of higher education in the Northeastern United States known for academic excellence.",
+      logoUrl: "https://upload.wikimedia.org/wikipedia/en/thumb/3/3c/Ivy_League_logo.svg/1200px-Ivy_League_logo.svg.png",
+      website: "https://ivyleague.com",
+      memberCount: 8,
+      universities: {
+        connect: mit ? [{ id: mit.id }] : []
+      }
+    }
+  })
+  console.log(`🎓 Created UniversityGroup: ${ivyLeague.name}`)
+
+  // 7. Seed MicroContent Tips
+  if (mit) {
+    await prisma.microContent.create({
+      data: {
+        universityId: mit.id,
+        category: "application_tips",
+        title: "MIT Early Action Advantage",
+        content: "MIT strongly encourages applying early action if you're certain about MIT. While it's not binding, acceptance rates are typically higher for EA applicants.",
+        priority: 1,
+      }
+    })
+
+    await prisma.microContent.create({
+      data: {
+        universityId: mit.id,
+        category: "financial_aid",
+        title: "Need-Blind Admissions",
+        content: "MIT practices need-blind admissions for all applicants, including international students. They meet 100% of demonstrated financial need.",
+        priority: 2,
+      }
+    })
+    console.log("💡 Created MicroContent tips")
+  }
+
+  const stanford = await prisma.university.findUnique({ where: { slug: 'stanford' } })
+  if (stanford) {
+    await prisma.microContent.create({
+      data: {
+        universityId: stanford.id,
+        category: "campus_life",
+        title: "Silicon Valley Advantage",
+        content: "Stanford's location in Silicon Valley provides unparalleled access to tech internships and startup culture.",
+        priority: 1,
+      }
+    })
+    console.log("💡 Added Stanford MicroContent")
   }
 
   console.log('✅ Seeding complete.')

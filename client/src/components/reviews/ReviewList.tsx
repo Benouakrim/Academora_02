@@ -2,15 +2,17 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth, useUser } from '@clerk/clerk-react'
 import { formatDistanceToNow } from 'date-fns'
-import { Trash2, MessageSquarePlus } from 'lucide-react'
+import { Trash2, MessageSquarePlus, ThumbsUp } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { toast } from 'sonner'
 import StarRating from './StarRating'
 import ReviewForm from './ReviewForm'
 import ReviewSummary from './ReviewSummary'
+import { useToggleHelpful } from '@/hooks/useReviewEngagement'
 
 type ReviewUser = { id: string; firstName?: string | null; lastName?: string | null; avatarUrl?: string | null; clerkId?: string }
 type Review = {
@@ -24,6 +26,8 @@ type Review = {
   campusRating?: number | null
   socialRating?: number | null
   careerRating?: number | null
+  helpfulCount: number
+  verified: boolean
 }
 
 type ReviewStats = {
@@ -47,6 +51,9 @@ export default function ReviewList({ universityId }: { universityId: string }) {
   const { user } = useUser()
   const queryClient = useQueryClient()
   const [isFormOpen, setIsFormOpen] = useState(false)
+  
+  // Engagement hook for helpful votes
+  const toggleHelpful = useToggleHelpful(universityId)
 
   const { data, isLoading } = useQuery<ReviewResponse>({
     queryKey: ['reviews', universityId],
@@ -125,9 +132,16 @@ export default function ReviewList({ universityId }: { universityId: string }) {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-semibold text-sm text-foreground">
-                          {review.user?.firstName} {review.user?.lastName}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm text-foreground">
+                            {review.user?.firstName} {review.user?.lastName}
+                          </p>
+                          {review.verified && (
+                            <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20">
+                              ✓ Verified Student
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(review.createdAt))} ago
                         </p>
@@ -171,6 +185,34 @@ export default function ReviewList({ universityId }: { universityId: string }) {
                         {tag.l}: {tag.v}
                       </div>
                     ))}
+                  </div>
+
+                  {/* Engagement Footer */}
+                  <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border/40">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-2 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-all"
+                      onClick={() => {
+                        if (!isSignedIn) {
+                          toast.error('Please sign in to vote');
+                          return;
+                        }
+                        toggleHelpful.mutate(review.id);
+                      }}
+                      disabled={toggleHelpful.isPending}
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                      <span className="text-xs font-medium">
+                        Helpful ({review.helpfulCount || 0})
+                      </span>
+                    </Button>
+                    
+                    <div className="text-xs text-muted-foreground">
+                      {review.helpfulCount > 0 && (
+                        <span>{review.helpfulCount} {review.helpfulCount === 1 ? 'person found' : 'people found'} this helpful</span>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               ))

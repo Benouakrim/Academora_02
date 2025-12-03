@@ -3,10 +3,15 @@ import { api } from '../lib/api';
 
 export interface PredictCostPayload {
   universityId: string;
-  income: number;
+  familyIncome: number;
   gpa: number;
-  sat?: number;
-  inState: boolean;
+  satScore?: number;
+  residency: 'in-state' | 'out-of-state' | 'international';
+  
+  // Extended Financial Fields
+  savings?: number;
+  investments?: number;
+  familySize?: number;
 }
 
 export interface PredictCostResult {
@@ -26,10 +31,15 @@ export function useFinancialAid() {
     mutationFn: async (payload) => {
       const body = {
         universityId: payload.universityId,
-        familyIncome: payload.income,
+        familyIncome: payload.familyIncome,
         gpa: payload.gpa,
-        satScore: payload.sat,
-        inState: payload.inState,
+        satScore: payload.satScore,
+        // Map residency enum to inState boolean for backward compatibility
+        inState: payload.residency === 'in-state',
+        // Include new fields
+        savings: payload.savings,
+        investments: payload.investments,
+        familySize: payload.familySize,
       };
       const { data } = await api.post('/aid/predict', body);
       return data as PredictCostResult;

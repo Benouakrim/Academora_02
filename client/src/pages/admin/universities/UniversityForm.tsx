@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
 import ImageUpload from '@/components/common/ImageUpload'
+import MicroContentManager from '@/components/admin/MicroContentManager'
 
 // Relaxed schema for the form (backend handles strict types)
 const universitySchema = z.object({
@@ -50,9 +51,10 @@ export type UniversityFormValues = z.infer<typeof universitySchema>
 type Props = {
   initialData?: Partial<UniversityFormValues>
   onSubmit: (values: UniversityFormValues) => Promise<void> | void
+  universityId?: string // For micro-content tab
 }
 
-export default function UniversityForm({ initialData, onSubmit }: Props) {
+export default function UniversityForm({ initialData, onSubmit, universityId }: Props) {
   const form = useForm<UniversityFormValues>({
     resolver: zodResolver(universitySchema),
     defaultValues: {
@@ -77,12 +79,13 @@ export default function UniversityForm({ initialData, onSubmit }: Props) {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pb-20">
       <Tabs defaultValue="basic" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className={`grid w-full ${universityId ? 'grid-cols-6' : 'grid-cols-5'}`}>
           <TabsTrigger value="basic">Overview</TabsTrigger>
           <TabsTrigger value="location">Location</TabsTrigger>
           <TabsTrigger value="academic">Academic</TabsTrigger>
           <TabsTrigger value="financial">Financial</TabsTrigger>
           <TabsTrigger value="life">Campus Life</TabsTrigger>
+          {universityId && <TabsTrigger value="micro-content">Micro-Content</TabsTrigger>}
         </TabsList>
 
         {/* --- 1. BASIC INFO --- */}
@@ -244,6 +247,13 @@ export default function UniversityForm({ initialData, onSubmit }: Props) {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* --- 6. MICRO-CONTENT TAB --- */}
+        {universityId && (
+          <TabsContent value="micro-content" className="space-y-4 mt-4">
+            <MicroContentManager universityId={universityId} />
+          </TabsContent>
+        )}
       </Tabs>
 
       <div className="flex justify-end gap-4">

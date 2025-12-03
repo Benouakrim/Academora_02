@@ -15,20 +15,26 @@ interface FinancialAidDialogProps {
 }
 
 type FormValues = {
-  income: number;
+  familyIncome: number;
   gpa: number;
-  sat?: number;
-  inState: boolean;
+  satScore?: number;
+  residency: 'in-state' | 'out-of-state' | 'international';
+  savings?: number;
+  investments?: number;
+  familySize?: number;
 };
 
 export const FinancialAidDialog: React.FC<FinancialAidDialogProps> = ({ universityId, isOpen, onClose }) => {
   const user = useUserStore((s) => s.profile);
-  const { register, handleSubmit, control } = useForm<FormValues>({
+  const { register, handleSubmit, control, watch } = useForm<FormValues>({
     defaultValues: {
-      income: user?.familyIncome || undefined,
+      familyIncome: user?.financialProfile?.householdIncome || undefined,
       gpa: user?.gpa || undefined,
-      sat: user?.satScore || undefined,
-      inState: false,
+      satScore: user?.satScore || undefined,
+      residency: 'out-of-state',
+      savings: user?.financialProfile?.savings || undefined,
+      investments: user?.financialProfile?.investments || undefined,
+      familySize: user?.financialProfile?.familySize || undefined,
     },
   });
 
@@ -37,10 +43,13 @@ export const FinancialAidDialog: React.FC<FinancialAidDialogProps> = ({ universi
   const onSubmit = (values: FormValues) => {
     mutate({
       universityId,
-      income: Number(values.income),
+      familyIncome: Number(values.familyIncome),
       gpa: Number(values.gpa),
-      sat: values.sat ? Number(values.sat) : undefined,
-      inState: values.inState,
+      satScore: values.satScore ? Number(values.satScore) : undefined,
+      residency: values.residency,
+      savings: values.savings ? Number(values.savings) : undefined,
+      investments: values.investments ? Number(values.investments) : undefined,
+      familySize: values.familySize ? Number(values.familySize) : undefined,
     });
   };
 
@@ -58,8 +67,8 @@ export const FinancialAidDialog: React.FC<FinancialAidDialogProps> = ({ universi
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Family Income ($)</label>
-                <Input type="number" {...register('income', { required: true, min: 0 })} placeholder="80000" />
+                <label className="text-sm font-medium">Household Income ($)</label>
+                <Input type="number" {...register('familyIncome', { required: true, min: 0 })} placeholder="80000" />
               </div>
               <div>
                 <label className="text-sm font-medium">GPA</label>
@@ -67,24 +76,36 @@ export const FinancialAidDialog: React.FC<FinancialAidDialogProps> = ({ universi
               </div>
               <div>
                 <label className="text-sm font-medium">SAT Score (Optional)</label>
-                <Input type="number" {...register('sat')} placeholder="1350" />
+                <Input type="number" {...register('satScore')} placeholder="1350" />
               </div>
-              <div className="flex items-center pt-6">
+              <div>
+                <label className="text-sm font-medium">Residency Status</label>
                 <Controller
-                  name="inState"
+                  name="residency"
                   control={control}
                   render={({ field }) => (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={field.value}
-                        onChange={(e) => field.onChange(e.target.checked)}
-                        className="h-4 w-4"
-                      />
-                      <label className="text-sm">I live in this state</label>
-                    </div>
+                    <select 
+                      {...field} 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="in-state">In-State</option>
+                      <option value="out-of-state">Out-of-State</option>
+                      <option value="international">International</option>
+                    </select>
                   )}
                 />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Savings (Optional)</label>
+                <Input type="number" {...register('savings')} placeholder="25000" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Investments (Optional)</label>
+                <Input type="number" {...register('investments')} placeholder="50000" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Family Size (Optional)</label>
+                <Input type="number" {...register('familySize')} placeholder="4" />
               </div>
             </div>
             <DialogFooter className="mt-6">

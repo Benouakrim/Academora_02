@@ -7,9 +7,6 @@ export const updateProfileSchema = {
     satScore: z.number().min(400).max(1600).optional(),
     actScore: z.number().min(1).max(36).optional(),
     
-    // Financials
-    maxBudget: z.number().positive().optional(),
-    
     // Preferences & Goals
     preferredMajor: z.string().min(2).max(100).optional(),
     dreamJobTitle: z.string().max(100).optional(),

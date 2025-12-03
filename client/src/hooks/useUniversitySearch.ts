@@ -40,8 +40,8 @@ export function useUniversitySearch(filters: SearchFilters) {
         Object.entries(debouncedFilters).filter(([_, v]) => v !== undefined && v !== '')
       )
       
-      const { data } = await api.get<University[]>('/universities', { params })
-      return data
+      const { data } = await api.get<{ data: University[], meta: { total: number, page: number, pageSize: number } }>('/universities', { params })
+      return data.data // Extract the universities array from the response
     },
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   })

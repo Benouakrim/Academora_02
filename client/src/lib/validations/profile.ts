@@ -6,8 +6,17 @@ export const profileSchema = z.object({
   satScore: z.number().min(400).max(1600).optional(),
   actScore: z.number().min(1).max(36).optional(),
 
-  // Financials
+  // Financials - Basic
   maxBudget: z.number().min(0).max(500000).optional(),
+  
+  // Financials - Extended (FinancialProfile fields)
+  householdIncome: z.number().min(0).optional(),
+  familySize: z.number().min(1).optional(),
+  savings: z.number().min(0).optional(),
+  investments: z.number().min(0).optional(),
+  expectedFamilyContribution: z.number().min(0).optional(),
+  eligibleForPellGrant: z.boolean().optional(),
+  eligibleForStateAid: z.boolean().optional(),
 
   // Personal
   firstName: z.string().min(1).optional(),

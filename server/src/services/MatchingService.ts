@@ -17,15 +17,41 @@ interface UniversityMatchResult {
 
 export class MatchingService {
   static async findMatches(profile: MatchRequest): Promise<UniversityMatchResult[]> {
-    // 1. Initial Filtering (Deal breakers)
+    // 1. Initial Filtering (Base constraints)
     const where: any = {};
     if (profile.preferredCountry) {
       where.country = { equals: profile.preferredCountry, mode: 'insensitive' };
     }
 
-    const universities = await prisma.university.findMany({ where });
+    let universities = await prisma.university.findMany({ where });
 
-    // 2. Scoring & Sorting
+    // 2. Strict Filtering (Dealbreakers) - Only if strictMatch is enabled
+    if (profile.strictMatch) {
+      universities = universities.filter((uni) => {
+        // Budget Constraint: Exclude if tuition exceeds maxBudget
+        const isInternational = profile.preferredCountry && 
+          profile.preferredCountry.toLowerCase() !== uni.country.toLowerCase();
+        const tuition = isInternational 
+          ? (uni.tuitionInternational || uni.tuitionOutState || 50000)
+          : (uni.tuitionOutState || 50000);
+        
+        if (tuition > profile.maxBudget) return false;
+
+        // Visa Constraint: Exclude if visa duration less than minimum required
+        if (profile.minVisaMonths && uni.visaDurationMonths) {
+          if (uni.visaDurationMonths < profile.minVisaMonths) return false;
+        }
+
+        // Safety Constraint: Exclude if below minimum safety rating
+        if (profile.minSafetyRating && uni.safetyRating) {
+          if (uni.safetyRating < profile.minSafetyRating) return false;
+        }
+
+        return true;
+      });
+    }
+
+    // 3. Scoring & Sorting
     const results = universities.map((uni) => {
       const breakdown = this.calculateBreakdown(uni, profile);
       const matchScore = this.calculateWeightedScore(breakdown, profile.importanceFactors);
@@ -113,10 +139,27 @@ export class MatchingService {
   private static scoreSocial(uni: University, profile: MatchRequest): number {
     let score = (uni.studentLifeScore || 3) * 20; // Normalize 0-5 to 0-100
     
-    // Boost for high diversity if implicit preference (could be added to schema)
-    if ((uni.diversityScore || 0) > 0.7) score += 5;
+    // Diversity Matching: If user has explicit preference, calculate closeness
+    if (profile.preferredDiversity !== undefined && uni.diversityScore !== null) {
+      const diversityCloseness = 100 - (Math.abs(uni.diversityScore - profile.preferredDiversity) * 100);
+      score = (score + diversityCloseness) / 2; // Blend with base score
+    } else if ((uni.diversityScore || 0) > 0.7) {
+      score += 5; // Small boost for high diversity if no explicit preference
+    }
 
-    return Math.min(100, score);
+    // Safety Rating: Normalize 0-5 to 0-100 and blend in
+    if (uni.safetyRating) {
+      const safetyScore = (uni.safetyRating / 5) * 100;
+      score = (score * 0.7) + (safetyScore * 0.3); // 70/30 weight
+    }
+
+    // Party Scene: Factor in for social fit (0-5 to 0-100)
+    if (uni.partySceneRating) {
+      const partyScore = (uni.partySceneRating / 5) * 100;
+      score = (score * 0.8) + (partyScore * 0.2); // 80/20 weight
+    }
+
+    return Math.min(100, Math.max(0, score));
   }
 
   private static scoreLocation(uni: University, profile: MatchRequest): number {
@@ -127,29 +170,46 @@ export class MatchingService {
       else score -= 20;
     }
 
+    // Robust climate matching: case-insensitive substring search
     if (profile.preferredClimate && uni.climateZone) {
-      if (uni.climateZone.toLowerCase().includes(profile.preferredClimate.toLowerCase())) {
-        score += 10;
+      const uniClimate = uni.climateZone.toLowerCase().trim();
+      const preferredClimate = profile.preferredClimate.toLowerCase().trim();
+      
+      if (uniClimate.includes(preferredClimate) || preferredClimate.includes(uniClimate)) {
+        score += 20; // Increased weight for climate match
       }
     }
 
-    return Math.min(100, score);
+    return Math.min(100, Math.max(0, score));
   }
 
   private static scoreFuture(uni: University, profile: MatchRequest): number {
-    let score = 70;
+    let score = 50; // Lower baseline to make room for component scores
 
-    // Employment outcomes
+    // Employment outcomes (33% weight)
     if (uni.employmentRate) {
-      score += (uni.employmentRate - 0.9) * 100; // Boost if > 90%
+      const employmentScore = uni.employmentRate * 100; // 0-1 to 0-100
+      score += employmentScore * 0.33;
     }
 
-    // Visa Support logic
+    // Alumni Network strength (33% weight) - normalize 0-5 to 0-100
+    if (uni.alumniNetwork) {
+      const alumniScore = (uni.alumniNetwork / 5) * 100;
+      score += alumniScore * 0.33;
+    }
+
+    // Internship Support (33% weight) - normalize 0-5 to 0-100
+    if (uni.internshipSupport) {
+      const internshipScore = (uni.internshipSupport / 5) * 100;
+      score += internshipScore * 0.33;
+    }
+
+    // Visa Support logic - bonus on top
     if (profile.needsVisaSupport && uni.visaDurationMonths) {
       if (profile.minVisaMonths && uni.visaDurationMonths >= profile.minVisaMonths) {
-        score += 30;
+        score += 20; // Major bonus for meeting visa requirement
       } else if (uni.visaDurationMonths >= 24) {
-        score += 15; // Good standard duration
+        score += 10; // Good standard duration
       }
     }
 

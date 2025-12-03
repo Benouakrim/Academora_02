@@ -1,10 +1,14 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { GraduationCap, DollarSign, Users, Briefcase } from 'lucide-react'
+import { GraduationCap, DollarSign, Users, Briefcase, Lightbulb } from 'lucide-react'
 import type { UniversityDetail } from '@/hooks/useUniversityDetail'
 import ReviewList from '@/components/reviews/ReviewList'
 import CareerHeatmap from '@/components/visualizations/CareerHeatmap'
+import ScoreRangeChart from '@/components/university/ScoreRangeChart'
+import StarRating from '@/components/reviews/StarRating'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/lib/api'
 
 // Helper for formatting currency
 const fmtMoney = (val: number | null) => val ? `$${val.toLocaleString()}` : 'N/A'
@@ -20,6 +24,22 @@ function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function UniversityTabs({ university }: { university: UniversityDetail }) {
+  // Fetch micro-content for this university
+  const { data: microContentData } = useQuery({
+    queryKey: ['microContent', university.id],
+    queryFn: async () => {
+      const { data } = await api.get(`/micro-content/university/${university.id}`)
+      return data.data as Array<{
+        id: string
+        category: string
+        title: string
+        content: string
+        priority: number
+      }>
+    },
+    enabled: !!university.id,
+  })
+
   return (
     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
       <Tabs defaultValue="overview" className="space-y-8">
@@ -53,6 +73,30 @@ export default function UniversityTabs({ university }: { university: UniversityD
                 ))}
               </CardContent>
             </Card>
+
+            {/* Campus Tips from MicroContent */}
+            {microContentData && microContentData.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Lightbulb className="h-5 w-5 text-primary" /> Campus Tips
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {microContentData.map((tip) => (
+                    <div key={tip.id} className="border-l-4 border-primary/30 pl-4 py-2">
+                      <h4 className="font-semibold text-foreground mb-1">{tip.title}</h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{tip.content}</p>
+                      {tip.category && (
+                        <Badge variant="outline" className="mt-2 text-xs">
+                          {tip.category.replace(/_/g, ' ')}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <div className="space-y-6">
@@ -81,55 +125,48 @@ export default function UniversityTabs({ university }: { university: UniversityD
         </TabsContent>
 
         {/* --- ADMISSIONS TAB --- */}
-        <TabsContent value="admissions" className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <GraduationCap className="h-5 w-5 text-primary" /> Selectivity
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="text-center p-6 bg-primary/5 rounded-xl border border-primary/10">
-                <div className="text-4xl font-black text-primary">{fmtPct(university.acceptanceRate)}</div>
-                <div className="text-sm text-muted-foreground mt-1">Acceptance Rate</div>
-              </div>
-              <StatRow label="Application Deadline" value={university.applicationDeadline ? new Date(university.applicationDeadline).toLocaleDateString() : 'N/A'} />
-              <StatRow label="Common App" value={university.commonAppAccepted ? "Accepted" : "No"} />
-            </CardContent>
-          </Card>
+        <TabsContent value="admissions" className="grid grid-cols-1 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5 text-primary" /> Selectivity
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="text-center p-6 bg-primary/5 rounded-xl border border-primary/10">
+                  <div className="text-4xl font-black text-primary">{fmtPct(university.acceptanceRate)}</div>
+                  <div className="text-sm text-muted-foreground mt-1">Acceptance Rate</div>
+                </div>
+                <StatRow label="Application Deadline" value={university.applicationDeadline ? new Date(university.applicationDeadline).toLocaleDateString() : 'N/A'} />
+                <StatRow label="Application Fee" value={university.applicationFee ? `$${university.applicationFee}` : 'N/A'} />
+                <StatRow label="Common App" value={university.commonAppAccepted ? "Accepted" : "No"} />
+                <StatRow label="Test Policy" value={university.testPolicy || 'N/A'} />
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Test Scores (25th - 75th %)</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <div className="flex justify-between mb-2 text-sm font-medium">
-                  <span>SAT Math</span>
-                  <span>{university.satMath25} - {university.satMath75}</span>
-                </div>
-                <div className="h-2 bg-muted rounded-full relative">
-                  <div 
-                    className="absolute h-full bg-primary rounded-full opacity-50"
-                    style={{ left: `${((university.satMath25 || 400)-400)/12}%`, width: `${((university.satMath75 || 800)-(university.satMath25 || 400))/12}%` }}
-                  />
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between mb-2 text-sm font-medium">
-                  <span>SAT Verbal</span>
-                  <span>{university.satVerbal25} - {university.satVerbal75}</span>
-                </div>
-                <div className="h-2 bg-muted rounded-full relative">
-                  <div 
-                    className="absolute h-full bg-secondary rounded-full opacity-50"
-                    style={{ left: `${((university.satVerbal25 || 400)-400)/12}%`, width: `${((university.satVerbal75 || 800)-(university.satVerbal25 || 400))/12}%` }}
-                  />
-                </div>
-              </div>
-              <StatRow label="Average GPA" value={university.avgGpa || 'N/A'} />
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Academic Requirements</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <StatRow label="Average GPA" value={university.avgGpa || 'N/A'} />
+                <StatRow label="Min GPA" value={university.minGpa || 'N/A'} />
+                <StatRow label="Average SAT" value={university.avgSatScore || 'N/A'} />
+                <StatRow label="Average ACT" value={university.avgActScore || 'N/A'} />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Score Range Chart */}
+          <ScoreRangeChart
+            satMath25={university.satMath25}
+            satMath75={university.satMath75}
+            satVerbal25={university.satVerbal25}
+            satVerbal75={university.satVerbal75}
+            actComposite25={university.actComposite25}
+            actComposite75={university.actComposite75}
+          />
         </TabsContent>
 
         {/* --- COSTS TAB --- */}
@@ -165,15 +202,57 @@ export default function UniversityTabs({ university }: { university: UniversityD
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5 text-primary" /> Employment
+                  <Briefcase className="h-5 w-5 text-primary" /> Employment & Graduation
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <StatRow label="Graduation Rate" value={fmtPct(university.graduationRate)} />
-                <StatRow label="Employment Rate" value={fmtPct(university.employmentRate)} />
+                <StatRow label="Retention Rate" value={fmtPct(university.retentionRate)} />
+                <StatRow label="Employment Rate (6mo)" value={fmtPct(university.employmentRate)} />
                 <StatRow label="Starting Salary" value={fmtMoney(university.averageStartingSalary)} />
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Career Support & Opportunities</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center py-3 border-b border-border/50">
+                    <span className="text-muted-foreground">Internship Support</span>
+                    <div className="flex items-center gap-2">
+                      {university.internshipSupport ? (
+                        <>
+                          <StarRating value={university.internshipSupport} readOnly size="sm" />
+                          <span className="text-sm font-medium">({university.internshipSupport}/5)</span>
+                        </>
+                      ) : (
+                        <span className="font-medium">N/A</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center py-3 border-b border-border/50">
+                    <span className="text-muted-foreground">Alumni Network</span>
+                    <div className="flex items-center gap-2">
+                      {university.alumniNetwork ? (
+                        <>
+                          <StarRating value={university.alumniNetwork} readOnly size="sm" />
+                          <span className="text-sm font-medium">({university.alumniNetwork}/5)</span>
+                        </>
+                      ) : (
+                        <span className="font-medium">N/A</span>
+                      )}
+                    </div>
+                  </div>
+                  <StatRow 
+                    label="Post-Grad Work Visa" 
+                    value={university.visaDurationMonths ? `${university.visaDurationMonths} months` : 'N/A'} 
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Legacy Feature Restored: Career Heatmap */}
             {university.averageStartingSalary && (
               <CareerHeatmap startingSalary={university.averageStartingSalary} />

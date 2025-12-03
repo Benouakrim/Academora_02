@@ -7,8 +7,26 @@ const prisma = new PrismaClient();
 const math = create(all, { number: 'BigNumber', precision: 64 });
 
 export class FinancialAidService {
-  static async predict(data: PredictRequest) {
-    const { universityId, familyIncome, gpa, satScore, residency } = data;
+  static async predict(data: PredictRequest, clerkId?: string) {
+    const { universityId, residency } = data;
+
+    // --- Fetch User Financial Profile if authenticated ---
+    let userProfile = null;
+    let user = null;
+    if (clerkId) {
+      user = await prisma.user.findUnique({
+        where: { clerkId },
+        include: { financialProfile: true }
+      });
+      userProfile = user?.financialProfile || null;
+    }
+
+    // --- Merge Data: Request > DB Profile/User > Defaults ---
+    const familyIncome = data.familyIncome ?? userProfile?.householdIncome ?? 0;
+    const gpa = data.gpa ?? user?.gpa ?? 0;
+    const satScore = data.satScore ?? user?.satScore ?? undefined;
+    const savings = data.savings ?? userProfile?.savings ?? 0;
+    const investments = data.investments ?? userProfile?.investments ?? 0;
 
     const uni = await prisma.university.findUnique({ where: { id: universityId } });
     if (!uni) throw new AppError(404, 'University not found');
@@ -46,18 +64,22 @@ export class FinancialAidService {
       };
     }
 
-    // --- 3. Calculate EFC (Estimated Family Contribution) ---
-    // Simplified Federal Methodology
-    let efc = 0;
+    // --- 3. Calculate EFC (Estimated Family Contribution) with Assets ---
+    // Income-based EFC (Simplified Federal Methodology)
+    let incomeContribution = 0;
     if (familyIncome > 120000) {
-      efc = 25000 + (familyIncome - 120000) * 0.40;
+      incomeContribution = 25000 + (familyIncome - 120000) * 0.40;
     } else if (familyIncome > 70000) {
-      efc = 8000 + (familyIncome - 70000) * 0.30;
+      incomeContribution = 8000 + (familyIncome - 70000) * 0.30;
     } else if (familyIncome > 30000) {
-      efc = (familyIncome - 30000) * 0.20;
+      incomeContribution = (familyIncome - 30000) * 0.20;
     }
-    
-    // EFC cap cannot exceed gross cost
+
+    // Asset-based EFC (Standard 5% assessment rate)
+    const assetContribution = (savings + investments) * 0.05;
+
+    // Total EFC = Income + Assets (capped at gross cost)
+    let efc = incomeContribution + assetContribution;
     efc = Math.min(efc, grossCost);
 
     // --- 4. Calculate Need-Based Aid ---
@@ -91,8 +113,19 @@ export class FinancialAidService {
 
     // Generate descriptive text
     let breakdown = `Based on an income of $${familyIncome.toLocaleString()}, your estimated EFC is $${Math.round(efc).toLocaleString()}.`;
+    
+    // Mention asset inclusion if assets were considered
+    if (assetContribution > 0) {
+      breakdown += ` This includes an asset assessment of $${Math.round(assetContribution).toLocaleString()} based on savings and investments.`;
+    }
+    
     if (uni.needBlindAdmission && residency !== 'international') {
       breakdown += " This school has Need-Blind admission policies.";
+    }
+
+    // Indicate if profile data was used
+    if (userProfile) {
+      breakdown += " Calculation based on your saved financial profile.";
     }
 
     return {

@@ -7,6 +7,7 @@ import {
   ChevronRight,
   School,
   Settings,
+  FolderKanban,
 } from 'lucide-react';
 
 interface AdminMenuProps {
@@ -20,6 +21,7 @@ export default function AdminMenu({ isOpen, onToggle }: AdminMenuProps) {
   const menuItems = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/admin', description: 'Overview and stats' },
     { name: 'Universities', icon: School, path: '/admin/universities', description: 'Manage database' },
+    { name: 'Groups', icon: FolderKanban, path: '/admin/groups', description: 'University collections' },
     { name: 'Articles', icon: FileText, path: '/admin/articles', description: 'Blog content' },
     { name: 'Users', icon: Users, path: '/admin/users', description: 'User management' },
     { name: 'Settings', icon: Settings, path: '/admin/settings', description: 'System config' }

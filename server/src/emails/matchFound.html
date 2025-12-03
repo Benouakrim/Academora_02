@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AcademOra - Match Found!</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; }
+        .header { background-color: #5d5dff; padding: 20px; text-align: center; color: white; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; line-height: 1.6; color: #333; }
+        .match-card { border: 1px solid #e0e0e0; border-left: 4px solid #5d5dff; padding: 15px; margin: 20px 0; border-radius: 6px; }
+        .match-card h2 { color: #5d5dff; margin-top: 0; font-size: 18px; }
+        .match-score { font-size: 32px; font-weight: bold; color: #10b981; margin-bottom: 10px; }
+        .cta-button { display: inline-block; padding: 12px 25px; margin-top: 20px; background-color: #10b981; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #e0e0e0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AcademOra</h1>
+            <p>Your University Matching Assistant</p>
+        </div>
+        <div class="content">
+            <p>Hello {{ userName }},</p>
+            <p>Great news! The Advanced Matching Engine has found a new top-tier university match based on your latest profile and preferences. Here's a look at your best fit:</p>
+
+            <div class="match-card">
+                <h2>{{ uniName }}</h2>
+                <p><strong>Location:</strong> {{ uniLocation }}</p>
+                <p><strong>Estimated Net Price:</strong> {{ netPrice }}</p>
+                <p><strong>Your Match Score:</strong></p>
+                <div class="match-score">{{ matchScore }} / 100</div>
+            </div>
+
+            <p>Log in now to view the detailed breakdown, compare it with your saved list, and adjust your Match Mixer factors for even better results!</p>
+            
+            <a href="{{ ctaLink }}" class="cta-button">View Your Matches Now</a>
+
+            <p style="margin-top: 40px;">Happy planning!</p>
+            <p>The AcademOra Team</p>
+        </div>
+        <div class="footer">
+            <p>&copy; {{ currentYear }} AcademOra. All rights reserved.</p>
+            <p><a href="{{ unsubscribeLink }}" style="color: #999;">Unsubscribe</a></p>
+        </div>
+    </div>
+</body>
+</html>

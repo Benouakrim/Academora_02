@@ -27,6 +27,7 @@ import microContentRoutes from './routes/microContent';
 import compareRoutes from './routes/compare';
 import claimsRoutes from './routes/claims';
 import referralsRoutes from './routes/referrals';
+import billingRoutes from './routes/billing';
 
 // Webhooks - NO AUTH (uses signature verification)
 router.use('/webhooks', webhookRoutes);
@@ -52,6 +53,7 @@ router.use('/micro-content', microContentRoutes);
 router.use('/compare', compareRoutes);
 router.use('/claims', claimsRoutes);
 router.use('/referrals', referralsRoutes);
+router.use('/billing', billingRoutes);
 // router.use('/users', userRoutes);
 // router.use('/saved', savedUniversityRoutes);
 // router.use('/comparisons', comparisonRoutes);

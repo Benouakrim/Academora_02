@@ -29,7 +29,24 @@ app.use(helmet());
 app.use(cors());
 app.use(morgan('dev'));
 
-// Capture raw body for webhook signature verification (Clerk via Svix)
+// --- CRITICAL: RAW BODY PARSING FOR STRIPE WEBHOOKS ---
+// This middleware must run BEFORE express.json() to capture the raw body
+app.use((req: any, _res, next) => {
+    // Only apply the raw body buffer to the Stripe webhook route
+    if (req.originalUrl === '/api/billing/webhook') {
+        express.raw({ type: 'application/json' })(req, _res, (err) => {
+            if (err) return next(err);
+            // Attach the raw body buffer to the request object for Stripe verification
+            req.rawBody = req.body;
+            next();
+        });
+    } else {
+        next();
+    }
+});
+// -----------------------------------------------------
+
+// Capture raw body for Clerk webhook signature verification (via Svix)
 // This must be BEFORE any routes are mounted to capture the body
 app.use('/api/webhooks', express.json({
   verify: (req: any, _res, buf) => {

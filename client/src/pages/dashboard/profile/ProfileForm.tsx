@@ -7,11 +7,12 @@ import { Slider } from '@/components/ui/slider'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { api } from '@/lib/api'
 import { toast } from 'sonner'
 import { useUserStore } from '@/store/useUserStore'
 import { Badge } from '@/components/ui/badge'
-import { X, Plus } from 'lucide-react'
+import { X, Plus, AlertTriangle } from 'lucide-react'
 import { useState } from 'react'
 
 type Props = {
@@ -78,6 +79,7 @@ function TagInput({
 
 export default function ProfileForm({ initialData }: Props) {
   const { fetchProfile } = useUserStore()
+  const [showAccountTypeWarning, setShowAccountTypeWarning] = useState(false)
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -100,6 +102,12 @@ export default function ProfileForm({ initialData }: Props) {
       careerGoals: initialData?.careerGoals ?? [],
       hobbies: initialData?.hobbies ?? [],
       preferredLearningStyle: initialData?.preferredLearningStyle ?? '',
+      // Onboarding fields
+      accountType: initialData?.accountType ?? undefined,
+      personaRole: initialData?.personaRole ?? '',
+      focusArea: initialData?.focusArea ?? '',
+      primaryGoal: initialData?.primaryGoal ?? '',
+      organizationName: initialData?.organizationName ?? '',
     },
   })
 
@@ -116,11 +124,108 @@ export default function ProfileForm({ initialData }: Props) {
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
       <Tabs defaultValue="academics" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+        <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="academics">Academics</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
           <TabsTrigger value="financials">Financials</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="profile">
+          <Card>
+            <CardHeader>
+              <CardTitle>Account & Goals</CardTitle>
+              <CardDescription>Update your account type and primary goals.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Account Type</label>
+                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">
+                      {form.watch('accountType') || 'Not Set'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Contact support to change your account type
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {form.watch('accountType') === 'INDIVIDUAL' && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Persona / Role</label>
+                    <Select 
+                      value={form.watch('personaRole') || ''} 
+                      onValueChange={(v) => form.setValue('personaRole', v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="STUDENT">Student</SelectItem>
+                        <SelectItem value="PROFESSIONAL">Professional</SelectItem>
+                        <SelectItem value="CAREER_CHANGER">Career Changer</SelectItem>
+                        <SelectItem value="PARENT">Parent</SelectItem>
+                        <SelectItem value="EDUCATOR">Educator</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Helps us personalize recommendations
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Focus Area / Field of Interest</label>
+                    <Input 
+                      {...form.register('focusArea')} 
+                      placeholder="e.g., Computer Science, Business, Medicine"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Your primary academic or professional interest
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Primary Goal</label>
+                    <Select 
+                      value={form.watch('primaryGoal') || ''} 
+                      onValueChange={(v) => form.setValue('primaryGoal', v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your main goal" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="FIND_UNIVERSITY">Find the Right University</SelectItem>
+                        <SelectItem value="FIND_FINANCIAL_AID">Find Financial Aid</SelectItem>
+                        <SelectItem value="CAREER_MATCHING">Career Guidance</SelectItem>
+                        <SelectItem value="COMPARE_OPTIONS">Compare Options</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      What you're primarily looking to achieve
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {form.watch('accountType') === 'ORGANIZATION' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Organization Name</label>
+                  <Input 
+                    {...form.register('organizationName')} 
+                    placeholder="e.g., ABC High School"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Your school, university, or organization name
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="academics">
           <Card>

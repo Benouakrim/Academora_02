@@ -5,6 +5,7 @@ const nav = [
   { to: '/dashboard', label: 'Overview' },
   { to: '/dashboard/saved', label: 'Saved List' },
   { to: '/dashboard/profile', label: 'Profile' },
+  { to: '/dashboard/badges', label: 'Badges' },
   { to: '/dashboard/referrals', label: 'Referrals' },
   { to: '/dashboard/claims', label: 'My Claims' },
 ]

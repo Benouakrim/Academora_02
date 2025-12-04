@@ -20,11 +20,13 @@ const BlogPage = lazy(() => import('@/pages/blog/BlogPage'));
 const ArticlePage = lazy(() => import('@/pages/blog/ArticlePage'));
 const UserArticleEditor = lazy(() => import('@/pages/blog/UserArticleEditor'));
 const StaticContentPage = lazy(() => import('@/pages/StaticContentPage'));
+const PricingPage = lazy(() => import('@/pages/PricingPage'));
 
 // Dashboard & Auth
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'));
 const SavedPage = lazy(() => import('@/pages/dashboard/SavedPage'));
 const ProfilePage = lazy(() => import('@/pages/dashboard/profile/ProfilePage'));
+const BadgesPage = lazy(() => import('@/pages/dashboard/BadgesPage'));
 const ReferralDashboardPage = lazy(() => import('@/pages/dashboard/ReferralDashboardPage'));
 const MatchingEnginePage = lazy(() => import('@/pages/dashboard/MatchingEnginePage'));
 const SignIn = lazy(() => import('@clerk/clerk-react').then(m => ({ default: m.SignIn })));
@@ -47,6 +49,7 @@ const AdminMicroContentPage = lazy(() => import('@/pages/admin/AdminMicroContent
 const MyClaimsPage = lazy(() => import('@/pages/dashboard/MyClaimsPage'));
 const GroupsPage = lazy(() => import('@/pages/GroupsPage'));
 const GroupDetailPage = lazy(() => import('@/pages/GroupDetailPage'));
+const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
 
 export default function App() {
   return (
@@ -58,6 +61,7 @@ export default function App() {
               <Route index element={<LandingPage />} />
               <Route path="search" element={<SearchPage />} />
               <Route path="compare" element={<ComparePage />} />
+              <Route path="pricing" element={<PricingPage />} />
               <Route path="blog" element={<BlogPage />} />
               <Route path="blog/:slug" element={<ArticlePage />} />
               <Route path="university/:slug" element={<UniversityPage />} />
@@ -68,16 +72,18 @@ export default function App() {
               <Route path="contact" element={<StaticContentPage slug="contact" />} />
               <Route path="privacy" element={<StaticContentPage slug="privacy" />} />
               <Route path="terms" element={<StaticContentPage slug="terms" />} />
-              <Route path="sign-in/*" element={<SignIn routing="path" path="/sign-in" />} />
-              <Route path="sign-up/*" element={<SignUp routing="path" path="/sign-up" />} />
+              <Route path="sign-in/*" element={<SignIn routing="path" path="/sign-in" afterSignInUrl="/dashboard" />} />
+              <Route path="sign-up/*" element={<SignUp routing="path" path="/sign-up" afterSignUpUrl="/dashboard" />} />
             </Route>
 
             <Route element={<ProtectedRoute />}> 
               <Route path="/write" element={<UserArticleEditor />} />
+              <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<DashboardPage />} />
                 <Route path="saved" element={<SavedPage />} />
                 <Route path="profile" element={<ProfilePage />} />
+                <Route path="badges" element={<BadgesPage />} />
                 <Route path="referrals" element={<ReferralDashboardPage />} />
                 <Route path="claims" element={<MyClaimsPage />} />
                 <Route path="matching-engine" element={<MatchingEnginePage />} />

@@ -28,6 +28,9 @@ import compareRoutes from './routes/compare';
 import claimsRoutes from './routes/claims';
 import referralsRoutes from './routes/referrals';
 import billingRoutes from './routes/billing';
+import onboardingRoutes from './routes/onboarding';
+import academicProfileRoutes from './routes/academicProfile';
+import financialProfileRoutes from './routes/financialProfile';
 
 // Webhooks - NO AUTH (uses signature verification)
 router.use('/webhooks', webhookRoutes);
@@ -54,6 +57,9 @@ router.use('/compare', compareRoutes);
 router.use('/claims', claimsRoutes);
 router.use('/referrals', referralsRoutes);
 router.use('/billing', billingRoutes);
+router.use('/onboarding', onboardingRoutes);
+router.use('/academic-profile', academicProfileRoutes);
+router.use('/financial-profile', financialProfileRoutes);
 // router.use('/users', userRoutes);
 // router.use('/saved', savedUniversityRoutes);
 // router.use('/comparisons', comparisonRoutes);

@@ -1,17 +1,33 @@
 import { create } from 'zustand'
 import { api } from '@/lib/api'
 
-type UserProfile = Record<string, any> | null
+export interface UserProfile {
+  id: string
+  clerkId: string
+  email: string
+  firstName?: string | null
+  lastName?: string | null
+  avatarUrl?: string | null
+  onboarded: boolean
+  onboardingSkipped: boolean
+  accountType?: string | null
+  personaRole?: string | null
+  focusArea?: string | null
+  primaryGoal?: string | null
+  organizationName?: string | null
+  onboardingAnswers?: any
+  [key: string]: any
+}
 
 type State = {
-  profile: UserProfile
+  profile: UserProfile | null
   isLoading: boolean
   error: string | null
 }
 
 type Actions = {
   fetchProfile: () => Promise<void>
-  setProfile: (profile: UserProfile) => void
+  setProfile: (profile: UserProfile | null) => void
   reset: () => void
 }
 
@@ -35,3 +51,4 @@ export const useUserStore = create<State & Actions>((set) => ({
     }
   },
 }))
+

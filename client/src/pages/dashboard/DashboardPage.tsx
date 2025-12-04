@@ -1,17 +1,29 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useEffect } from 'react'
 import api from '@/lib/api'
+import { useUserStore } from '@/store/useUserStore'
 import DashboardHeader from './components/DashboardHeader'
 import StatsCards from './components/StatsCards'
 import ActivityFeed from '@/components/dashboard/ActivityFeed'
 import RecommendedWidget from './components/RecommendedWidget'
+import OnboardingStatusWidget from '@/components/dashboard/OnboardingStatusWidget'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export default function DashboardPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const { profile } = useUserStore()
+
+  // Auto-redirect new users to onboarding
+  useEffect(() => {
+    if (profile && !profile.onboarded && !profile.onboardingSkipped) {
+      navigate('/onboarding')
+    }
+  }, [profile, navigate])
 
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
@@ -43,6 +55,9 @@ export default function DashboardPage() {
 
         {/* Right Column: Recommendations & Quick Actions */}
         <div className="space-y-8">
+          {/* Onboarding Status Widget */}
+          <OnboardingStatusWidget />
+
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">{t('dashboard_recommended')}</h2>

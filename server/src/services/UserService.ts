@@ -65,9 +65,35 @@ export class UserService {
   }
 
   static async updateProfile(clerkId: string, data: any) {
-    // Filter out undefined/null values to avoid overwriting with null
+    // Define allowed fields for profile updates
+    const allowedFields = [
+      // Basic Info
+      'firstName',
+      'lastName',
+      // Academic Stats
+      'gpa',
+      'satScore',
+      'actScore',
+      'preferredMajor',
+      // Onboarding relational fields
+      'accountType',
+      'personaRole',
+      'focusArea',
+      'primaryGoal',
+      'organizationName',
+      // Extended Profile
+      'dreamJobTitle',
+      'careerGoals',
+      'hobbies',
+      'languagesSpoken',
+      'preferredLearningStyle',
+      'personalityType',
+    ];
+
+    // Filter to only allowed fields and remove undefined/null/empty values
     const cleanData = Object.fromEntries(
-      Object.entries(data).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+      Object.entries(data)
+        .filter(([key, v]) => allowedFields.includes(key) && v !== undefined && v !== null && v !== '')
     );
 
     try {
@@ -75,8 +101,11 @@ export class UserService {
         where: { clerkId },
         data: cleanData,
       });
+      
+      console.log(`[UserService] Profile updated for user ${clerkId}`, Object.keys(cleanData));
       return updated;
     } catch (err) {
+      console.error('[UserService] Failed to update profile:', err);
       throw new AppError(400, 'Failed to update profile');
     }
   }

@@ -76,6 +76,7 @@ export default function Navbar() {
               { to: '/groups', label: 'Collections' },
               { to: '/compare', label: 'Compare' },
               { to: '/blog', label: 'Insights' },
+              { to: '/pricing', label: 'Pricing' },
             ].map((link) => (
               <Link 
                 key={link.to} 
@@ -104,6 +105,11 @@ export default function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-3">
+                <Link to="/write">
+                  <Button variant="outline" size="sm" className="hidden lg:flex">
+                    Write Article
+                  </Button>
+                </Link>
                 <Link to="/dashboard">
                   <Button variant="ghost" size="sm" className="hidden md:flex">
                     <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard

@@ -82,6 +82,16 @@ model User {
   lastName  String?
   avatarUrl String?
 
+  // --- Onboarding System ---
+  onboarded         Boolean @default(false)
+  onboardingSkipped Boolean @default(false)
+  accountType       String? // 'INDIVIDUAL' or 'ORGANIZATION'
+  personaRole       String? // For individuals: e.g., 'STUDENT', 'PROFESSIONAL'
+  focusArea         String? // For individuals: e.g., 'COMPUTER_SCIENCE', 'BUSINESS'
+  primaryGoal       String? // For individuals: e.g., 'FIND_FINANCIAL_AID', 'CAREER_MATCHING'
+  organizationName  String? // For organizations: Name of the organization
+  onboardingAnswers Json?   // Flexible JSONB store for raw questionnaire data
+
   // --- Extended Academic Profile (Legacy Port) ---
   gpa            Float?
   satScore       Int?
@@ -105,6 +115,7 @@ model User {
   role UserRole @default(USER)
 
   // Relations
+  academicProfile   AcademicProfile?
   financialProfile  FinancialProfile?
   savedUniversities SavedUniversity[]
   comparisons       Comparison[]
@@ -318,6 +329,48 @@ model FinancialProfile {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model AcademicProfile {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String @unique // 1:1 relation to User
+
+  // --- Core Academic Metrics ---
+  gpa              Float?  // Current GPA
+  gpaScale         Int?    // GPA scale (e.g., 4, 5, 10, 100)
+  
+  // --- Standardized Test Scores (Flexible JSON Storage) ---
+  // Structure: { "SAT": { "total": 1450, "math": 750, "verbal": 700, "date": "2024-05" }, 
+  //              "ACT": { "composite": 32, "english": 34, "math": 30, "reading": 33, "science": 31 },
+  //              "AP": [{ "subject": "Calculus BC", "score": 5, "year": 2023 }],
+  //              "IB": { "predicted": 42, "subjects": [...] } }
+  testScores       Json?
+
+  // --- High School Information ---
+  highSchoolName   String? // Name of current/previous high school
+  gradYear         Int?    // Expected or actual graduation year
+
+  // --- Intended Majors ---
+  primaryMajor     String? // Primary field of study interest
+  secondaryMajor   String? // Secondary/alternate field of study
+
+  // --- Extracurricular Activities ---
+  // Array of activity descriptions (e.g., ["Student Council President", "Varsity Soccer Captain", "Debate Team"])
+  extracurriculars String[]
+
+  // --- Academic Honors & Awards ---
+  // Structure: [{ "name": "National Merit Scholar", "year": 2024, "level": "National" },
+  //             { "name": "Science Olympiad Gold Medal", "year": 2023, "level": "State" }]
+  academicHonors   Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([gradYear])
+  @@index([gpa])
+  @@index([primaryMajor])
 }
 
 model Comparison {

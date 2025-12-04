@@ -5,6 +5,38 @@ const prisma = new PrismaClient();
 
 export class FinancialProfileService {
   /**
+   * Initialize a financial profile for a user with default values.
+   * Called automatically when user's primaryGoal is FIND_FINANCIAL_AID.
+   */
+  static async initializeFinancialProfile(userId: string) {
+    try {
+      // Check if profile already exists
+      const existing = await prisma.financialProfile.findUnique({
+        where: { userId },
+      });
+
+      if (existing) {
+        return existing;
+      }
+
+      // Create a new financial profile with default/empty values
+      const financialProfile = await prisma.financialProfile.create({
+        data: {
+          userId,
+          maxBudget: 50000, // Default budget
+          // All other fields remain null/undefined for user to fill later
+        },
+      });
+
+      console.log(`[FinancialProfileService] Initialized financial profile for user ${userId}`);
+      return financialProfile;
+    } catch (error: any) {
+      console.error('[FinancialProfileService] Failed to initialize profile:', error);
+      throw new AppError(500, 'Failed to initialize financial profile');
+    }
+  }
+
+  /**
    * Upsert (create or update) a FinancialProfile for a user identified by clerkId.
    * This method first resolves the internal userId from the clerkId,
    * then uses Prisma's upsert to either create or update the single related record.

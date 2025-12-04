@@ -22,6 +22,13 @@ export const profileSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
   
+  // Onboarding Relational Fields
+  accountType: z.enum(['INDIVIDUAL', 'ORGANIZATION']).optional(),
+  personaRole: z.string().optional(),
+  focusArea: z.string().optional(),
+  primaryGoal: z.string().optional(),
+  organizationName: z.string().optional(),
+  
   // Interests
   preferredMajor: z.string().min(2, "Major is too short").optional(),
   dreamJobTitle: z.string().optional(),

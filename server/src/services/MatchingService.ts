@@ -1,5 +1,6 @@
 import { PrismaClient, University } from '@prisma/client';
 import { MatchRequest } from '../validation/matchingSchemas';
+import { AcademicProfileService } from './AcademicProfileService';
 
 const prisma = new PrismaClient();
 
@@ -16,8 +17,77 @@ interface UniversityMatchResult {
 }
 
 export class MatchingService {
-  static async findMatches(profile: MatchRequest): Promise<UniversityMatchResult[]> {
-    // 1. Initial Filtering (Base constraints)
+  /**
+   * Get recommended universities based on user's onboarding profile.
+   * Pre-filters universities by focusArea and personaRole for first-time users.
+   */
+  static async getRecommendedUniversities(userId: string): Promise<UniversityMatchResult[]> {
+    // Fetch user profile with onboarding data
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        focusArea: true,
+        personaRole: true,
+        gpa: true,
+        satScore: true,
+        preferredMajor: true,
+        financialProfile: {
+          select: {
+            maxBudget: true,
+            householdIncome: true,
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Fetch the user's academic profile for enhanced matching
+    let academicProfile = null;
+    try {
+      academicProfile = await AcademicProfileService.getByUserId(userId);
+    } catch (error) {
+      // Academic profile is optional - continue with basic matching if not found
+      console.log(`[MatchingService] No academic profile found for user ${userId}`);
+    }
+
+    // Extract test scores from academic profile if available
+    const testScores = academicProfile?.testScores as any || {};
+    const satTotal = testScores.SAT?.total;
+    const actComposite = testScores.ACT?.composite;
+
+    // Build a basic MatchRequest from user profile for initial recommendations
+    // Prioritize academic profile data over legacy user fields
+    const matchRequest: MatchRequest = {
+      gpa: academicProfile?.gpa || user.gpa || 3.0,
+      satScore: (satTotal || user.satScore) ?? undefined,
+      actScore: actComposite,
+      preferredMajor: academicProfile?.primaryMajor || user.preferredMajor || user.focusArea || 'Undeclared',
+      maxBudget: user.financialProfile?.maxBudget || 50000,
+      needsVisaSupport: false,
+      strictMatch: false,
+      importanceFactors: {
+        // Boost academic importance when academic profile exists
+        academics: academicProfile ? 8 : 5,
+        cost: 4,
+        social: 3,
+        location: 3,
+        future: 4,
+      }
+    };
+
+    return this.findMatches(matchRequest, user.focusArea, user.personaRole, academicProfile);
+  }
+
+  static async findMatches(
+    profile: MatchRequest, 
+    userFocusArea?: string | null, 
+    userPersonaRole?: string | null,
+    academicProfile?: any
+  ): Promise<UniversityMatchResult[]> {
+    // 1. Initial Filtering (Base constraints + Onboarding data)
     const where: any = {};
     if (profile.preferredCountry) {
       where.country = { equals: profile.preferredCountry, mode: 'insensitive' };
@@ -25,7 +95,70 @@ export class MatchingService {
 
     let universities = await prisma.university.findMany({ where });
 
-    // 2. Strict Filtering (Dealbreakers) - Only if strictMatch is enabled
+    // 2. Apply Academic Profile-based filtering (Primary filter when available)
+    // If user has a rich academic profile, use it for intelligent pre-filtering
+    if (academicProfile) {
+      universities = universities.filter((uni) => {
+        // GPA Filter: Exclude universities significantly above user's academic level
+        if (academicProfile.gpa && uni.minGpa && academicProfile.gpa < uni.minGpa - 0.3) {
+          return false; // Too much of a reach
+        }
+
+        // Test Score Filter: Exclude if user's scores are too low
+        const testScores = academicProfile.testScores as any || {};
+        if (testScores.SAT?.total && uni.avgSatScore) {
+          if (testScores.SAT.total < uni.avgSatScore - 150) {
+            return false; // Significant SAT gap
+          }
+        }
+
+        return true; // Include if passes academic filters
+      });
+    }
+
+    // 3. Apply Onboarding-based filtering (First-time optimization)
+    // If user has defined focusArea or personaRole, prioritize matching universities
+    if (userFocusArea || userPersonaRole || academicProfile?.primaryMajor) {
+      universities = universities.filter((uni) => {
+        let score = 0;
+        
+        // Primary Major matching (highest priority if from academic profile)
+        if (academicProfile?.primaryMajor) {
+          const majorKeywords = academicProfile.primaryMajor.toLowerCase();
+          const matchesMajor = uni.popularMajors.some(m => 
+            m.toLowerCase().includes(majorKeywords) ||
+            majorKeywords.includes(m.toLowerCase())
+          );
+          if (matchesMajor) score += 3; // Higher weight for academic profile major
+        }
+        
+        // Focus Area matching: Check if university offers programs in the user's focus area
+        if (userFocusArea) {
+          const focusAreaKeywords = userFocusArea.toLowerCase().replace(/_/g, ' ');
+          const matchesMajor = uni.popularMajors.some(m => 
+            m.toLowerCase().includes(focusAreaKeywords) ||
+            focusAreaKeywords.includes(m.toLowerCase())
+          );
+          if (matchesMajor) score += 2;
+        }
+        
+        // Persona Role matching: Simple heuristic based on institution characteristics
+        // STUDENT persona: Prefer institutions with strong undergraduate programs
+        // PROFESSIONAL: Prefer institutions with career services and alumni networks
+        if (userPersonaRole === 'STUDENT') {
+          if (uni.studentLifeScore && uni.studentLifeScore >= 3) score += 1;
+        } else if (userPersonaRole === 'PROFESSIONAL' || userPersonaRole === 'CAREER_CHANGER') {
+          if (uni.alumniNetwork && uni.alumniNetwork >= 3) score += 1;
+          if (uni.internshipSupport && uni.internshipSupport >= 3) score += 1;
+        }
+        
+        // Only include universities with some relevance for first-time users
+        // Otherwise include all for broader matching
+        return score > 0 || (!userFocusArea && !userPersonaRole && !academicProfile?.primaryMajor);
+      });
+    }
+
+    // 3. Strict Filtering (Dealbreakers) - Only if strictMatch is enabled
     if (profile.strictMatch) {
       universities = universities.filter((uni) => {
         // Budget Constraint: Exclude if tuition exceeds maxBudget
@@ -51,9 +184,9 @@ export class MatchingService {
       });
     }
 
-    // 3. Scoring & Sorting
+    // 4. Scoring & Sorting
     const results = universities.map((uni) => {
-      const breakdown = this.calculateBreakdown(uni, profile);
+      const breakdown = this.calculateBreakdown(uni, profile, academicProfile);
       const matchScore = this.calculateWeightedScore(breakdown, profile.importanceFactors);
       
       return { university: uni, matchScore, breakdown };
@@ -63,9 +196,9 @@ export class MatchingService {
     return results.sort((a, b) => b.matchScore - a.matchScore).slice(0, 20);
   }
 
-  private static calculateBreakdown(uni: University, profile: MatchRequest) {
+  private static calculateBreakdown(uni: University, profile: MatchRequest, academicProfile?: any) {
     return {
-      academic: this.scoreAcademic(uni, profile),
+      academic: this.scoreAcademic(uni, profile, academicProfile),
       financial: this.scoreFinancial(uni, profile),
       social: this.scoreSocial(uni, profile),
       location: this.scoreLocation(uni, profile),
@@ -92,25 +225,79 @@ export class MatchingService {
 
   // --- Scoring Engines ---
 
-  private static scoreAcademic(uni: University, profile: MatchRequest): number {
+  private static scoreAcademic(uni: University, profile: MatchRequest, academicProfile?: any): number {
     let score = 70; // Baseline
 
-    // GPA Match
-    if (uni.avgGpa && profile.gpa >= uni.avgGpa) score += 20;
-    else if (uni.minGpa && profile.gpa >= uni.minGpa) score += 10;
-    else if (uni.avgGpa && profile.gpa < uni.avgGpa - 0.5) score -= 20; // Reach school
+    // Enhanced GPA Match with academic profile
+    const userGpa = academicProfile?.gpa || profile.gpa;
+    if (uni.avgGpa && userGpa >= uni.avgGpa) score += 25; // Increased from 20
+    else if (uni.minGpa && userGpa >= uni.minGpa) score += 15; // Increased from 10
+    else if (uni.avgGpa && userGpa < uni.avgGpa - 0.5) score -= 20; // Reach school
 
-    // SAT Match (if provided)
-    if (profile.satScore && uni.avgSatScore) {
+    // Enhanced Test Score Match with academic profile data
+    if (academicProfile?.testScores) {
+      const testScores = academicProfile.testScores as any;
+      
+      // SAT Scoring
+      if (testScores.SAT?.total && uni.avgSatScore) {
+        const satDiff = testScores.SAT.total - uni.avgSatScore;
+        if (satDiff >= 0) score += 15; // Above average
+        else if (satDiff >= -100) score += 5; // Within range
+        else score -= 15; // Below range
+      }
+      
+      // ACT Scoring (alternative to SAT)
+      if (testScores.ACT?.composite && uni.avgActScore) {
+        const actDiff = testScores.ACT.composite - uni.avgActScore;
+        if (actDiff >= 0) score += 15; // Above average
+        else if (actDiff >= -2) score += 5; // Within range
+        else score -= 15; // Below range
+      }
+      
+      // AP Exam bonus - shows academic rigor
+      if (testScores.AP && Array.isArray(testScores.AP)) {
+        const apCount = testScores.AP.length;
+        const highScores = testScores.AP.filter((exam: any) => exam.score >= 4).length;
+        score += Math.min(10, apCount * 2); // Up to 10 points for AP courses
+        score += Math.min(5, highScores); // Bonus for high scores
+      }
+    } else if (profile.satScore && uni.avgSatScore) {
+      // Fallback to legacy SAT score
       if (profile.satScore >= uni.avgSatScore) score += 10;
       else if (profile.satScore < uni.avgSatScore - 100) score -= 10;
     }
 
-    // Major Availability
+    // Enhanced Major Alignment with academic profile
+    const preferredMajor = academicProfile?.primaryMajor || profile.preferredMajor;
     const hasMajor = uni.popularMajors.some(m => 
-      m.toLowerCase().includes(profile.preferredMajor.toLowerCase())
+      m.toLowerCase().includes(preferredMajor.toLowerCase()) ||
+      preferredMajor.toLowerCase().includes(m.toLowerCase())
     );
-    if (hasMajor) score += 20; // Big boost for having the major
+    if (hasMajor) score += 25; // Increased from 20
+    
+    // Secondary major bonus
+    if (academicProfile?.secondaryMajor) {
+      const hasSecondaryMajor = uni.popularMajors.some(m => 
+        m.toLowerCase().includes(academicProfile.secondaryMajor.toLowerCase())
+      );
+      if (hasSecondaryMajor) score += 10; // Bonus for dual major fit
+    }
+
+    // Academic Honors bonus - indicates high achievement
+    if (academicProfile?.academicHonors && Array.isArray(academicProfile.academicHonors)) {
+      const honors = academicProfile.academicHonors;
+      const nationalOrHigher = honors.filter((h: any) => 
+        ['National', 'International'].includes(h.level)
+      ).length;
+      score += Math.min(10, honors.length * 2); // Up to 10 points for honors
+      score += nationalOrHigher * 3; // Extra bonus for national/international
+    }
+
+    // Extracurricular alignment bonus
+    if (academicProfile?.extracurriculars && Array.isArray(academicProfile.extracurriculars)) {
+      const activityCount = academicProfile.extracurriculars.length;
+      score += Math.min(5, activityCount); // Up to 5 points for activities
+    }
 
     return Math.min(100, score);
   }

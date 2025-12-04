@@ -34,6 +34,7 @@ export default function Footer() {
               <li><Link to="/search" className="hover:text-primary transition-colors">University Search</Link></li>
               <li><Link to="/compare" className="hover:text-primary transition-colors">Comparison Tool</Link></li>
               <li><Link to="/blog" className="hover:text-primary transition-colors">Student Guides</Link></li>
+              <li><Link to="/pricing" className="hover:text-primary transition-colors">Pricing</Link></li>
             </ul>
           </div>
 

@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, School, FileText, MessageSquare, Activity, Shield, LogOut, ShieldCheck, Layers } from 'lucide-react'
+import { LayoutDashboard, School, FileText, MessageSquare, Activity, Shield, LogOut, ShieldCheck, Layers, Users } from 'lucide-react'
 import useAdmin from '@/hooks/useAdmin'
 import { Button } from '@/components/ui/button'
 
@@ -15,6 +15,7 @@ export default function AdminLayout() {
     { to: '/admin/articles', label: 'Articles', icon: FileText },
     { to: '/admin/reviews', label: 'Reviews', icon: MessageSquare },
     { to: '/admin/claims', label: 'Claims', icon: ShieldCheck },
+    { to: '/admin/groups', label: 'Groups', icon: Users },
     { to: '/admin/micro-content', label: 'Micro-Content', icon: Layers },
     { to: '/admin/health', label: 'System Health', icon: Activity },
   ]

@@ -2,6 +2,10 @@ import { z } from 'zod';
 
 export const updateProfileSchema = {
   body: z.object({
+    // Basic Info
+    firstName: z.string().min(1).optional(),
+    lastName: z.string().min(1).optional(),
+    
     // Academic Stats
     gpa: z.number().min(0).max(5.0).optional(),
     satScore: z.number().min(400).max(1600).optional(),
@@ -18,9 +22,12 @@ export const updateProfileSchema = {
     preferredLearningStyle: z.enum(['Visual', 'Auditory', 'Reading/Writing', 'Kinesthetic', 'Multimodal']).optional(),
     personalityType: z.string().max(50).optional(), // e.g., "INTJ" or "Extrovert"
     
-    // Basic Info updates
-    firstName: z.string().min(1).optional(),
-    lastName: z.string().min(1).optional(),
+    // Onboarding Relational Fields (optional for profile updates)
+    accountType: z.enum(['INDIVIDUAL', 'ORGANIZATION']).optional(),
+    personaRole: z.string().max(50).optional(),
+    focusArea: z.string().max(100).optional(),
+    primaryGoal: z.string().max(100).optional(),
+    organizationName: z.string().max(200).optional(),
   }),
 };
 

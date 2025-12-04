@@ -31,6 +31,10 @@ import billingRoutes from './routes/billing';
 import onboardingRoutes from './routes/onboarding';
 import academicProfileRoutes from './routes/academicProfile';
 import financialProfileRoutes from './routes/financialProfile';
+import profilesRoutes from './routes/profiles';
+
+// Public routes (NO AUTH)
+router.use('/profiles', profilesRoutes);
 
 // Webhooks - NO AUTH (uses signature verification)
 router.use('/webhooks', webhookRoutes);
@@ -40,7 +44,7 @@ router.use(clerkAuth);
 
 // Protected routes (require authentication)
 router.use('/universities', universityRoutes);
-router.use('/match', matchingRoutes);
+router.use('/matching', matchingRoutes);
 router.use('/aid', financialAidRoutes);
 router.use('/user', userRoutes);
 router.use('/admin', adminRoutes);

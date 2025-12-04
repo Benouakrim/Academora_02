@@ -3,10 +3,11 @@ import { useAuth } from '@clerk/clerk-react'
 import { useUserStore } from '@/store/useUserStore'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { User, GraduationCap, DollarSign } from 'lucide-react'
+import { User, GraduationCap, DollarSign, Lock } from 'lucide-react'
 import ProfileForm from './ProfileForm'
 import AcademicProfileTab from './AcademicProfileTab'
 import FinancialProfileTab from './FinancialProfileTab'
+import PrivacySettingsTab from './PrivacySettingsTab'
 
 export default function ProfilePage() {
   const { profile, isLoading, error, fetchProfile } = useUserStore()
@@ -36,7 +37,7 @@ export default function ProfilePage() {
 
       {!isLoading && (
         <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="general" className="flex items-center gap-2">
               <User className="w-4 h-4" />
               <span className="hidden sm:inline">General</span>
@@ -48,6 +49,10 @@ export default function ProfilePage() {
             <TabsTrigger value="financial" className="flex items-center gap-2">
               <DollarSign className="w-4 h-4" />
               <span className="hidden sm:inline">Financial</span>
+            </TabsTrigger>
+            <TabsTrigger value="privacy" className="flex items-center gap-2">
+              <Lock className="w-4 h-4" />
+              <span className="hidden sm:inline">Privacy</span>
             </TabsTrigger>
           </TabsList>
 
@@ -61,6 +66,10 @@ export default function ProfilePage() {
 
           <TabsContent value="financial">
             <FinancialProfileTab />
+          </TabsContent>
+
+          <TabsContent value="privacy">
+            <PrivacySettingsTab />
           </TabsContent>
         </Tabs>
       )}

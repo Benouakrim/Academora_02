@@ -1,6 +1,9 @@
 import { z } from 'zod'
 
 export const profileSchema = z.object({
+  // Profile & Identity
+  username: z.string().min(3).max(20).regex(/^[a-zA-Z0-9_-]+$/, "Username can only contain letters, numbers, underscores, and hyphens").optional(),
+  
   // Academics
   gpa: z.number().min(0).max(5).optional(),
   satScore: z.number().min(400).max(1600).optional(),

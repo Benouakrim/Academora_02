@@ -1,120 +1,220 @@
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { Filter, SlidersHorizontal } from 'lucide-react'
-import { useUniversitySearch, type SearchFilters as Filters } from '@/hooks/useUniversitySearch'
-import UniversityCard from '@/components/search/UniversityCard'
-import SearchFiltersComponent from '@/components/search/SearchFilters'
-import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { Skeleton } from '@/components/ui/skeleton'
-import { SEO } from '@/components/common/SEO'
+import { useState } from 'react';
+import { Filter } from 'lucide-react';
+import { useUniversitySearch } from '@/hooks/useUniversitySearch';
+import { useSearchStore, countActiveFilters } from '@/store/useSearchStore';
+import { useInitialSearchCriteria } from '@/hooks/useInitialSearchCriteria';
+import SearchFiltersComponent from '@/components/search/SearchFilters';
+import SearchHeaderBar from '@/components/search/SearchHeaderBar';
+import UniversityCardGrid from '@/components/search/UniversityCardGrid';
+import UniversityCompactList from '@/components/search/UniversityCompactList';
+import UniversityMapLayout from '@/components/search/UniversityMapLayout';
+import PaginationControls from '@/components/search/PaginationControls';
+import CategoryWeightPanel from '@/components/search/CategoryWeightPanel';
+import MatchModeEmptyState from '@/components/search/MatchModeEmptyState';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
+import { SEO } from '@/components/common/SEO';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 
 export default function SearchPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  // Load user's profile data to pre-fill filters
+  const { isLoading: loadingProfile } = useInitialSearchCriteria();
   
-  // Parse URL params into filter state
-  const [filters, setFilters] = useState<Filters>({
-    search: searchParams.get('q') || undefined,
-    country: searchParams.get('country') || undefined,
-    maxTuition: searchParams.get('maxTuition') ? Number(searchParams.get('maxTuition')) : undefined,
-    major: searchParams.get('major') || undefined,
-    climate: searchParams.get('climate') || undefined,
-    setting: searchParams.get('setting') || undefined,
-  })
+  // Get search data using the new discovery engine
+  const { data, isLoading, error } = useUniversitySearch();
+  
+  // Get state from store
+  const { 
+    criteria, 
+    viewType, 
+    viewMode,
+    isFetching,
+    isProfileLoaded,
+    hasCompleteProfile,
+  } = useSearchStore();
 
-  // Sync state -> URL
-  useEffect(() => {
-    const params = new URLSearchParams()
-    if (filters.search) params.set('q', filters.search)
-    if (filters.country) params.set('country', filters.country)
-    if (filters.major) params.set('major', filters.major)
-    if (filters.climate) params.set('climate', filters.climate)
-    if (filters.setting) params.set('setting', filters.setting)
-    if (filters.maxTuition) params.set('maxTuition', String(filters.maxTuition))
-    setSearchParams(params, { replace: true })
-  }, [filters, setSearchParams])
+  // Mobile filter sheet state
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  const { data: universities, isLoading } = useUniversitySearch(filters)
+  // Calculate active filters count
+  const activeFiltersCount = countActiveFilters(criteria);
+
+  // Check if profile is complete for match mode
+  const isProfileComplete = hasCompleteProfile();
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-black">
       <SEO title="Search Universities - AcademOra" description="Find your dream university from our global database." />
       
-      {/* Header */}
-      <div className="bg-white dark:bg-neutral-900 border-b border-border sticky top-16 z-30 px-4 py-4 shadow-sm">
-        <div className="mx-auto max-w-7xl flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Explore Universities</h1>
-            <p className="text-sm text-muted-foreground hidden sm:block">
-              {universities ? `${universities.length} results found` : 'Searching...'}
-            </p>
-          </div>
-          
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" className="lg:hidden gap-2">
-                <SlidersHorizontal className="h-4 w-4" /> Filters
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[300px] sm:w-[400px] overflow-y-auto">
-              <SheetHeader className="mb-6">
-                <SheetTitle>Filter Results</SheetTitle>
-              </SheetHeader>
-              <SearchFiltersComponent filters={filters} onChange={setFilters} />
-            </SheetContent>
-          </Sheet>
-        </div>
-      </div>
+      {/* Persistent Search Header Bar */}
+      <SearchHeaderBar
+        totalResults={data?.pagination.totalResults || 0}
+        appliedFiltersCount={activeFiltersCount}
+        isLoading={isLoading}
+        isProfileLoaded={isProfileLoaded}
+        loadingProfile={loadingProfile}
+        onMobileFiltersClick={() => setMobileFiltersOpen(true)}
+      />
 
+      {/* Main Content Area with Responsive Layout */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-8">
-          {/* Desktop Sidebar */}
-          <aside className="hidden lg:block w-72 shrink-0">
-            <div className="sticky top-32 space-y-6">
-               <div className="bg-white dark:bg-neutral-900 rounded-xl border p-5 shadow-sm">
-                 <SearchFiltersComponent filters={filters} onChange={setFilters} />
-               </div>
+        {/* Mobile Filter Sheet (only on < lg) */}
+        <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+          <SheetContent side="left" className="w-[340px] sm:w-[400px] overflow-y-auto p-0">
+            <SheetHeader className="px-6 pt-6 pb-4 border-b">
+              <SheetTitle>Filter Universities</SheetTitle>
+            </SheetHeader>
+            <div className="px-2">
+              <SearchFiltersComponent />
             </div>
-          </aside>
+          </SheetContent>
+        </Sheet>
 
-          {/* Results Grid */}
-          <main className="flex-1">
-            {isLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="space-y-3">
-                    <Skeleton className="h-48 w-full rounded-xl" />
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-4 w-1/2" />
-                  </div>
-                ))}
-              </div>
-            ) : universities && universities.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {universities.map((uni) => (
-                  <UniversityCard key={uni.id} university={uni} />
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="h-20 w-20 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4">
-                  <Filter className="h-10 w-10 text-muted-foreground opacity-50" />
-                </div>
-                <h3 className="text-lg font-semibold">No universities found</h3>
-                <p className="text-muted-foreground max-w-sm mt-2">
-                  Try adjusting your filters or search query to see more results.
-                </p>
-                <Button 
-                  variant="link" 
-                  onClick={() => setFilters({})}
-                  className="mt-4 text-primary"
-                >
-                  Clear all filters
-                </Button>
-              </div>
-            )}
-          </main>
+        {/* Filters Section - Above Results (Desktop) */}
+        <div className="hidden lg:block mb-8">
+          <div className="bg-white dark:bg-neutral-900 rounded-xl border shadow-sm">
+            <SearchFiltersComponent />
+          </div>
         </div>
+
+        {/* Category Weight Panel - Only in Match Mode */}
+        {viewMode === 'MATCH' && isProfileComplete && (
+          <div className="mb-8">
+            <CategoryWeightPanel />
+          </div>
+        )}
+
+        {/* Results Area */}
+        <main className="w-full">{/* Full width layout */}
+            <ErrorBoundary
+              fallback={
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="h-20 w-20 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+                    <Filter className="h-10 w-10 text-red-600 opacity-50" />
+                  </div>
+                  <h3 className="text-lg font-semibold">Error loading search results</h3>
+                  <p className="text-muted-foreground max-w-sm mt-2 mb-4">
+                    An unexpected error occurred while loading universities. Try adjusting your filters.
+                  </p>
+                  <Button onClick={() => window.location.reload()} variant="outline">
+                    Refresh Page
+                  </Button>
+                </div>
+              }
+            >
+              {error ? (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="h-20 w-20 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-4">
+                    <Filter className="h-10 w-10 text-red-600 opacity-50" />
+                  </div>
+                  <h3 className="text-lg font-semibold">Error loading universities</h3>
+                  <p className="text-muted-foreground max-w-sm mt-2">
+                    {error instanceof Error ? error.message : 'Something went wrong. Please try again.'}
+                  </p>
+                </div>
+              ) : viewMode === 'MATCH' && !isProfileComplete ? (
+                <MatchModeEmptyState />
+              ) : data && data.results.length > 0 ? (
+                <>
+                  {/* Results Summary Header */}
+                  <div className="mb-6 pb-4 border-b border-border">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div>
+                        <h2 className="text-2xl font-bold text-foreground">
+                          Found {data.pagination.totalResults.toLocaleString()} {data.pagination.totalResults === 1 ? 'University' : 'Universities'}
+                        </h2>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Showing {((data.pagination.currentPage - 1) * criteria.limit) + 1} - {Math.min(data.pagination.currentPage * criteria.limit, data.pagination.totalResults)} of {data.pagination.totalResults.toLocaleString()}
+                          {data.restricted && (
+                            <Badge variant="outline" className="ml-2 border-amber-400 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20">
+                              Free tier: Top 3 results shown
+                            </Badge>
+                          )}
+                        </p>
+                      </div>
+                      {activeFiltersCount > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="px-3 py-1">
+                            {activeFiltersCount} filter{activeFiltersCount !== 1 ? 's' : ''} applied
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Multi-View Rendering */}
+                  {viewType === 'CARD' && (
+                    <UniversityCardGrid 
+                      results={data.results} 
+                      isLoading={isLoading || isFetching}
+                    />
+                  )}
+                  
+                  {viewType === 'LIST' && (
+                    isLoading || isFetching ? (
+                      <div className="space-y-4">
+                        {Array.from({ length: 10 }).map((_, i) => (
+                          <div key={i} className="flex items-center gap-4 p-4 bg-white dark:bg-neutral-900 rounded-lg border">
+                            <Skeleton className="h-16 w-16 rounded" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="h-4 w-3/4" />
+                              <Skeleton className="h-3 w-1/2" />
+                            </div>
+                            <Skeleton className="h-8 w-16" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <UniversityCompactList results={data.results} />
+                    )
+                  )}
+                  
+                  {viewType === 'MAP' && (
+                    <UniversityMapLayout results={data.results} />
+                  )}
+                  
+                  {/* Pagination Controls - Only for Card and List views */}
+                  {(viewType === 'CARD' || viewType === 'LIST') && (
+                    <PaginationControls
+                      totalResults={data.pagination.totalResults}
+                      currentPage={data.pagination.currentPage}
+                      limit={criteria.limit}
+                      isLoading={isLoading || isFetching}
+                    />
+                  )}
+                </>
+              ) : isLoading || isFetching ? (
+                viewType === 'CARD' ? (
+                  <UniversityCardGrid results={[]} isLoading={true} />
+                ) : (
+                  <div className="space-y-4">
+                    {Array.from({ length: 10 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-4 p-4 bg-white dark:bg-neutral-900 rounded-lg border">
+                        <Skeleton className="h-16 w-16 rounded" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-3/4" />
+                          <Skeleton className="h-3 w-1/2" />
+                        </div>
+                        <Skeleton className="h-8 w-16" />
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <div className="h-20 w-20 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4">
+                    <Filter className="h-10 w-10 text-muted-foreground opacity-50" />
+                  </div>
+                  <h3 className="text-lg font-semibold">No universities found</h3>
+                  <p className="text-muted-foreground max-w-sm mt-2">
+                    Try adjusting your filters or search query to see more results.
+                  </p>
+                </div>
+              )}
+            </ErrorBoundary>
+          </main>
       </div>
     </div>
   )

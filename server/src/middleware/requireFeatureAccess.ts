@@ -45,6 +45,10 @@ export function requireFeatureAccess(feature: string) {
         });
       }
 
+      // Attach user plan/role to request for downstream usage (e.g., result restrictions)
+      (req as any).userPlan = user.role;
+      (req as any).userId = user.id;
+
       // MVP Logic: Admin users have access to all features
       if (user.role === 'ADMIN') {
         console.log(`[FeatureAccess] ✅ Admin access granted: ${feature} for user ${user.email}`);
@@ -93,6 +97,55 @@ export enum Feature {
   BULK_EXPORT = 'BULK_EXPORT',
   PRIORITY_SUPPORT = 'PRIORITY_SUPPORT',
   API_ACCESS = 'API_ACCESS',
+}
+
+/**
+ * Optional authentication middleware for public endpoints with tiered access
+ * Attaches user plan if authenticated, otherwise marks as anonymous
+ * Used for features like university discovery that have different limits based on auth status
+ */
+export async function attachUserPlan(req: Request, res: Response, next: NextFunction) {
+  try {
+    const getAuth = (req as any).auth as (() => { userId?: string } | undefined);
+    const auth = typeof getAuth === 'function' ? getAuth() : undefined;
+    
+    if (!auth || !auth.userId) {
+      // Anonymous user - attach default plan
+      (req as any).userPlan = 'FREE';
+      (req as any).isAnonymous = true;
+      console.log('[UserPlan] Anonymous user detected - applying FREE tier restrictions');
+      return next();
+    }
+
+    // Authenticated user - fetch their plan
+    const user = await prisma.user.findUnique({
+      where: { clerkId: auth.userId },
+      select: { 
+        id: true,
+        role: true,
+        email: true
+      }
+    });
+
+    if (user) {
+      (req as any).userPlan = user.role;
+      (req as any).userId = user.id;
+      (req as any).isAnonymous = false;
+      console.log(`[UserPlan] Authenticated user: ${user.email} (${user.role})`);
+    } else {
+      // User in Clerk but not in DB - treat as free
+      (req as any).userPlan = 'FREE';
+      (req as any).isAnonymous = false;
+    }
+
+    next();
+  } catch (error) {
+    console.error('[UserPlan] Error checking user plan:', error);
+    // On error, default to free tier
+    (req as any).userPlan = 'FREE';
+    (req as any).isAnonymous = true;
+    next();
+  }
 }
 
 /**

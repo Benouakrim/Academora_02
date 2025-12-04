@@ -72,6 +72,12 @@ enum ReferralStatus {
   COMPLETED
 }
 
+enum ProfileVisibility {
+  PUBLIC
+  PRIVATE
+  FOLLOWERS_ONLY
+}
+
 // --- Core Models ---
 
 model User {
@@ -81,6 +87,11 @@ model User {
   firstName String?
   lastName  String?
   avatarUrl String?
+  username  String? @unique // For public profile URL
+
+  // --- Profile Privacy & Visibility ---
+  profileVisibility ProfileVisibility @default(PRIVATE)
+  profileSettings   Json? // Granular field visibility: { showEmail, showBadges, showAcademics, showSavedCount, etc }
 
   // --- Onboarding System ---
   onboarded         Boolean @default(false)
@@ -135,6 +146,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@index([clerkId])
+  @@index([username])
 }
 
 model University {
@@ -326,6 +338,7 @@ model FinancialProfile {
   expectedFamilyContribution Int?
   eligibleForPellGrant Boolean @default(false)
   eligibleForStateAid Boolean @default(false)
+  needsFinancialAid Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -374,10 +387,11 @@ model AcademicProfile {
 }
 
 model Comparison {
-  id     String @id @default(uuid())
-  name   String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
 
   universityIds String[]
 

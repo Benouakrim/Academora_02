@@ -70,6 +70,7 @@ export class UserService {
       // Basic Info
       'firstName',
       'lastName',
+      'username',
       // Academic Stats
       'gpa',
       'satScore',

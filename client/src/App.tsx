@@ -25,6 +25,7 @@ const PricingPage = lazy(() => import('@/pages/PricingPage'));
 // Dashboard & Auth
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'));
 const SavedPage = lazy(() => import('@/pages/dashboard/SavedPage'));
+const SavedComparisonsPage = lazy(() => import('@/pages/dashboard/SavedComparisonsPage'));
 const ProfilePage = lazy(() => import('@/pages/dashboard/profile/ProfilePage'));
 const BadgesPage = lazy(() => import('@/pages/dashboard/BadgesPage'));
 const ReferralDashboardPage = lazy(() => import('@/pages/dashboard/ReferralDashboardPage'));
@@ -50,6 +51,7 @@ const MyClaimsPage = lazy(() => import('@/pages/dashboard/MyClaimsPage'));
 const GroupsPage = lazy(() => import('@/pages/GroupsPage'));
 const GroupDetailPage = lazy(() => import('@/pages/GroupDetailPage'));
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
+const PublicProfilePage = lazy(() => import('@/pages/profile/PublicProfilePage'));
 
 export default function App() {
   return (
@@ -68,6 +70,8 @@ export default function App() {
               <Route path="university-claims/claim" element={<UniversityClaimPage />} />
               <Route path="groups" element={<GroupsPage />} />
               <Route path="groups/:slug" element={<GroupDetailPage />} />
+              <Route path=":username" element={<PublicProfilePage />} />
+              <Route path="@:username" element={<PublicProfilePage />} />
               <Route path="about" element={<StaticContentPage slug="about" />} />
               <Route path="contact" element={<StaticContentPage slug="contact" />} />
               <Route path="privacy" element={<StaticContentPage slug="privacy" />} />
@@ -82,6 +86,7 @@ export default function App() {
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<DashboardPage />} />
                 <Route path="saved" element={<SavedPage />} />
+                <Route path="saved-comparisons" element={<SavedComparisonsPage />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="badges" element={<BadgesPage />} />
                 <Route path="referrals" element={<ReferralDashboardPage />} />

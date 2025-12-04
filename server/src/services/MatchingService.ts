@@ -1,12 +1,15 @@
 import { PrismaClient, University } from '@prisma/client';
-import { MatchRequest } from '../validation/matchingSchemas';
+import { MatchRequest, DiscoveryCriteria, DiscoveryResponse } from '../validation/matchingSchemas';
 import { AcademicProfileService } from './AcademicProfileService';
+import { FinancialProfileService } from './FinancialProfileService';
+import { UserService } from './UserService';
 
 const prisma = new PrismaClient();
 
 interface UniversityMatchResult {
   university: University;
   matchScore: number;
+  matchPercentage: number;
   breakdown: {
     academic: number;
     financial: number;
@@ -14,9 +17,167 @@ interface UniversityMatchResult {
     location: number;
     future: number;
   };
+  scoreBreakdown: {
+    academic: { score: number; weight: number; contribution: number };
+    financial: { score: number; weight: number; contribution: number };
+    social: { score: number; weight: number; contribution: number };
+    location: { score: number; weight: number; contribution: number };
+    future: { score: number; weight: number; contribution: number };
+    total: number;
+  };
 }
 
 export class MatchingService {
+  /**
+   * Get initial search criteria based on user's profile data
+   * Maps user, academic, and financial profile data to DiscoveryCriteria format
+   * Used to pre-fill search filters on the frontend
+   * 
+   * @param clerkId - User's Clerk authentication ID
+   * @returns DiscoveryCriteria object with user's profile data
+   */
+  static async getInitialCriteria(clerkId: string): Promise<DiscoveryCriteria> {
+    try {
+      // 1. Get basic user data
+      const user = await UserService.getProfile(clerkId);
+      
+      if (!user) {
+        // Return default criteria if user not found
+        return this.getDefaultCriteria();
+      }
+
+      // 2. Get financial profile data
+      let financialProfile = null;
+      try {
+        financialProfile = await FinancialProfileService.getByClerkId(clerkId);
+      } catch (error) {
+        console.log(`[MatchingService] No financial profile found for user ${clerkId}`);
+      }
+
+      // 3. Get academic profile data
+      let academicProfile = null;
+      try {
+        academicProfile = await AcademicProfileService.getByClerkId(clerkId);
+      } catch (error) {
+        console.log(`[MatchingService] No academic profile found for user ${clerkId}`);
+      }
+
+      // 4. Extract and parse test scores from academic profile
+      const testScores = academicProfile?.testScores as any || {};
+      const satTotal = testScores.SAT?.total;
+      const actComposite = testScores.ACT?.composite;
+
+      // 5. Map user data to DiscoveryCriteria structure
+      const initialCriteria: DiscoveryCriteria = {
+        // Search text - default empty
+        searchText: '',
+
+        // Academic filters from academic profile
+        academics: {
+          minGpa: academicProfile?.gpa ? Math.max(0, academicProfile.gpa - 0.3) : undefined,
+          maxGpa: academicProfile?.gpa ? Math.min(5.0, academicProfile.gpa + 0.3) : undefined,
+          minSatScore: satTotal ? Math.max(400, satTotal - 150) : undefined,
+          maxSatScore: satTotal ? Math.min(1600, satTotal + 150) : undefined,
+          minActScore: actComposite ? Math.max(1, actComposite - 3) : undefined,
+          maxActScore: actComposite ? Math.min(36, actComposite + 3) : undefined,
+          majors: academicProfile?.primaryMajor 
+            ? [academicProfile.primaryMajor] 
+            : user.preferredMajor && user.preferredMajor !== 'Undeclared' 
+            ? [user.preferredMajor] 
+            : undefined,
+          testPolicy: undefined, // User can select this
+        },
+
+        // Financial filters from financial profile
+        financials: {
+          maxTuition: financialProfile?.maxBudget || user.financialProfile?.maxBudget || undefined,
+          minGrantAid: undefined, // User can adjust
+          maxNetCost: financialProfile?.maxBudget || user.financialProfile?.maxBudget || undefined,
+          needsFinancialAid: financialProfile?.needsFinancialAid || false,
+        },
+
+        // Location filters from user preferences
+        location: {
+          countries: undefined, // User can select
+          states: undefined, // User can select
+          settings: undefined, // User can select
+          climateZones: undefined, // User can select
+          minSafetyRating: undefined, // User can select
+        },
+
+        // Social filters - defaults, user can adjust
+        social: {
+          minStudentLifeScore: undefined,
+          minDiversityScore: undefined,
+          maxDiversityScore: undefined,
+          minPartyScene: undefined,
+          maxPartyScene: undefined,
+        },
+
+        // Future/Career filters
+        future: {
+          needsVisaSupport: false, // User can enable if needed
+          minVisaDuration: undefined, // User can specify
+          minEmploymentRate: undefined,
+          minAlumniNetwork: undefined,
+          minInternshipSupport: undefined,
+        },
+
+        // User profile for scoring
+        userProfile: {
+          gpa: academicProfile?.gpa || user.gpa || undefined,
+          satScore: satTotal || user.satScore || undefined,
+          actScore: actComposite || user.actScore || undefined,
+          preferredMajor: academicProfile?.primaryMajor || user.preferredMajor || undefined,
+          maxBudget: financialProfile?.maxBudget || user.financialProfile?.maxBudget || undefined,
+        },
+
+        // Default weights - user can customize
+        weights: {
+          academic: 40,
+          financial: 30,
+          location: 15,
+          social: 10,
+          future: 5,
+        },
+
+        // Default sorting and pagination
+        sortBy: 'matchPercentage',
+        page: 1,
+        limit: 20,
+        includeReachSchools: true,
+        strictFiltering: false,
+      };
+
+      return initialCriteria;
+    } catch (error) {
+      console.error('[MatchingService] Error getting initial criteria:', error);
+      // Return default criteria on error
+      return this.getDefaultCriteria();
+    }
+  }
+
+  /**
+   * Get default search criteria when no user profile exists
+   */
+  private static getDefaultCriteria(): DiscoveryCriteria {
+    return {
+      searchText: '',
+      sortBy: 'matchPercentage',
+      page: 1,
+      limit: 20,
+      includeReachSchools: true,
+      strictFiltering: false,
+      weights: {
+        academic: 40,
+        financial: 30,
+        location: 15,
+        social: 10,
+        future: 5,
+      },
+    };
+  }
+
   /**
    * Get recommended universities based on user's onboarding profile.
    * Pre-filters universities by focusArea and personaRole for first-time users.
@@ -187,9 +348,16 @@ export class MatchingService {
     // 4. Scoring & Sorting
     const results = universities.map((uni) => {
       const breakdown = this.calculateBreakdown(uni, profile, academicProfile);
-      const matchScore = this.calculateWeightedScore(breakdown, profile.importanceFactors);
+      const scoringResult = this.calculateWeightedScore(uni, profile, academicProfile);
+      const matchScore = scoringResult.matchPercentage;
       
-      return { university: uni, matchScore, breakdown };
+      return { 
+        university: uni, 
+        matchScore, 
+        matchPercentage: scoringResult.matchPercentage,
+        breakdown,
+        scoreBreakdown: scoringResult.scoreBreakdown
+      };
     });
 
     // Return top 20 matches
@@ -206,21 +374,92 @@ export class MatchingService {
     };
   }
 
+  /**
+   * Calculate weighted match score with detailed breakdown
+   * @param university - University to score
+   * @param criteria - User's matching criteria
+   * @param academicProfile - Optional academic profile for enhanced scoring
+   * @returns Object containing matchPercentage and detailed scoreBreakdown
+   */
   private static calculateWeightedScore(
-    breakdown: ReturnType<typeof MatchingService.calculateBreakdown>,
-    factors: MatchRequest['importanceFactors']
-  ): number {
-    const totalWeight = Object.values(factors).reduce((a, b) => a + b, 0);
-    
-    const score = (
-      (breakdown.academic * factors.academics) +
-      (breakdown.financial * factors.cost) +
-      (breakdown.social * factors.social) +
-      (breakdown.location * factors.location) +
-      (breakdown.future * factors.future)
-    ) / totalWeight;
+    university: University,
+    criteria: MatchRequest,
+    academicProfile?: any
+  ): { matchPercentage: number; scoreBreakdown: UniversityMatchResult['scoreBreakdown'] } {
+    // Define default category weights (percentages)
+    const DEFAULT_WEIGHTS = {
+      academic: 0.40,   // 40% - Academic fit is most important
+      financial: 0.30,  // 30% - Financial feasibility
+      location: 0.15,   // 15% - Location preferences
+      social: 0.10,     // 10% - Social/cultural fit
+      future: 0.05,     // 5%  - Career outcomes
+    };
 
-    return Math.round(Math.min(100, Math.max(0, score)));
+    // Allow user-defined importance factors to adjust weights
+    // Convert importance factors (1-10) to weight multipliers
+    let adjustedWeights = { ...DEFAULT_WEIGHTS };
+    
+    if (criteria.importanceFactors) {
+      const factors = criteria.importanceFactors;
+      const totalFactors = factors.academics + factors.cost + factors.social + factors.location + factors.future;
+      
+      // Normalize user factors to percentages
+      adjustedWeights = {
+        academic: (factors.academics / totalFactors),
+        financial: (factors.cost / totalFactors),
+        social: (factors.social / totalFactors),
+        location: (factors.location / totalFactors),
+        future: (factors.future / totalFactors),
+      };
+    }
+
+    // Calculate individual category scores (0-100)
+    const breakdown = this.calculateBreakdown(university, criteria, academicProfile);
+    
+    // Calculate weighted contributions
+    const contributions = {
+      academic: breakdown.academic * adjustedWeights.academic,
+      financial: breakdown.financial * adjustedWeights.financial,
+      social: breakdown.social * adjustedWeights.social,
+      location: breakdown.location * adjustedWeights.location,
+      future: breakdown.future * adjustedWeights.future,
+    };
+
+    // Calculate total match percentage
+    const totalScore = Object.values(contributions).reduce((sum, val) => sum + val, 0);
+    const matchPercentage = Math.round(Math.min(100, Math.max(0, totalScore)));
+
+    // Build detailed score breakdown
+    const scoreBreakdown = {
+      academic: {
+        score: Math.round(breakdown.academic),
+        weight: Math.round(adjustedWeights.academic * 100),
+        contribution: Math.round(contributions.academic * 100) / 100,
+      },
+      financial: {
+        score: Math.round(breakdown.financial),
+        weight: Math.round(adjustedWeights.financial * 100),
+        contribution: Math.round(contributions.financial * 100) / 100,
+      },
+      social: {
+        score: Math.round(breakdown.social),
+        weight: Math.round(adjustedWeights.social * 100),
+        contribution: Math.round(contributions.social * 100) / 100,
+      },
+      location: {
+        score: Math.round(breakdown.location),
+        weight: Math.round(adjustedWeights.location * 100),
+        contribution: Math.round(contributions.location * 100) / 100,
+      },
+      future: {
+        score: Math.round(breakdown.future),
+        weight: Math.round(adjustedWeights.future * 100),
+        contribution: Math.round(contributions.future * 100) / 100,
+      },
+      total: matchPercentage,
+    };
+
+    return { matchPercentage, scoreBreakdown };
   }
 
   // --- Scoring Engines ---
@@ -401,5 +640,318 @@ export class MatchingService {
     }
 
     return Math.min(100, Math.max(0, score));
+  }
+
+  // ========================================
+  // UNIVERSITY DISCOVERY ENGINE
+  // ========================================
+
+  /**
+   * High-performance university search with comprehensive filtering, scoring, and pagination
+   * @param criteria - Discovery criteria with filters, sorting, and pagination
+   * @param userPlan - User's subscription plan (USER, PREMIUM, ADMIN, or FREE for anonymous)
+   * @param isAnonymous - Whether the user is unauthenticated
+   * @returns Paginated results with match scores and metadata (restricted to top 3 for free/anonymous users)
+   */
+  static async searchUniversities(
+    criteria: DiscoveryCriteria, 
+    userPlan: string = 'FREE', 
+    isAnonymous: boolean = false
+  ): Promise<DiscoveryResponse> {
+    // Build comprehensive Prisma WHERE clause
+    const where: any = {};
+    let filterCount = 0;
+
+    // --- Text Search ---
+    if (criteria.searchText && criteria.searchText.trim()) {
+      filterCount++;
+      const searchTerms = criteria.searchText.trim().toLowerCase();
+      where.OR = [
+        { name: { contains: searchTerms, mode: 'insensitive' } },
+        { city: { contains: searchTerms, mode: 'insensitive' } },
+        { country: { contains: searchTerms, mode: 'insensitive' } },
+        { popularMajors: { hasSome: [searchTerms] } },
+      ];
+    }
+
+    // --- Academic Filters ---
+    if (criteria.academics) {
+      if (criteria.academics.minGpa !== undefined) {
+        filterCount++;
+        where.avgGpa = { ...where.avgGpa, gte: criteria.academics.minGpa };
+      }
+      if (criteria.academics.maxGpa !== undefined) {
+        filterCount++;
+        where.avgGpa = { ...where.avgGpa, lte: criteria.academics.maxGpa };
+      }
+      if (criteria.academics.minSatScore !== undefined) {
+        filterCount++;
+        where.avgSatScore = { ...where.avgSatScore, gte: criteria.academics.minSatScore };
+      }
+      if (criteria.academics.maxSatScore !== undefined) {
+        filterCount++;
+        where.avgSatScore = { ...where.avgSatScore, lte: criteria.academics.maxSatScore };
+      }
+      if (criteria.academics.minActScore !== undefined) {
+        filterCount++;
+        where.avgActScore = { ...where.avgActScore, gte: criteria.academics.minActScore };
+      }
+      if (criteria.academics.maxActScore !== undefined) {
+        filterCount++;
+        where.avgActScore = { ...where.avgActScore, lte: criteria.academics.maxActScore };
+      }
+      if (criteria.academics.majors && criteria.academics.majors.length > 0) {
+        filterCount++;
+        where.popularMajors = { hasSome: criteria.academics.majors };
+      }
+      if (criteria.academics.testPolicy !== undefined) {
+        filterCount++;
+        where.testPolicy = criteria.academics.testPolicy;
+      }
+    }
+
+    // --- Financial Filters ---
+    if (criteria.financials) {
+      if (criteria.financials.minTuition !== undefined) {
+        filterCount++;
+        where.tuitionOutState = { ...where.tuitionOutState, gte: criteria.financials.minTuition };
+      }
+      if (criteria.financials.maxTuition !== undefined) {
+        filterCount++;
+        where.tuitionOutState = { ...where.tuitionOutState, lte: criteria.financials.maxTuition };
+      }
+      if (criteria.financials.minGrantAid !== undefined) {
+        filterCount++;
+        where.averageGrantAid = { ...where.averageGrantAid, gte: criteria.financials.minGrantAid };
+      }
+    }
+
+    // --- Location Filters ---
+    if (criteria.location) {
+      if (criteria.location.countries && criteria.location.countries.length > 0) {
+        filterCount++;
+        where.country = { in: criteria.location.countries };
+      }
+      if (criteria.location.states && criteria.location.states.length > 0) {
+        filterCount++;
+        where.state = { in: criteria.location.states };
+      }
+      if (criteria.location.cities && criteria.location.cities.length > 0) {
+        filterCount++;
+        where.city = { in: criteria.location.cities };
+      }
+      if (criteria.location.settings && criteria.location.settings.length > 0) {
+        filterCount++;
+        where.setting = { in: criteria.location.settings };
+      }
+      if (criteria.location.climateZones && criteria.location.climateZones.length > 0) {
+        filterCount++;
+        where.climateZone = { in: criteria.location.climateZones };
+      }
+      if (criteria.location.minSafetyRating !== undefined) {
+        filterCount++;
+        where.safetyRating = { ...where.safetyRating, gte: criteria.location.minSafetyRating };
+      }
+    }
+
+    // --- Social Filters ---
+    if (criteria.social) {
+      if (criteria.social.minStudentLifeScore !== undefined) {
+        filterCount++;
+        where.studentLifeScore = { ...where.studentLifeScore, gte: criteria.social.minStudentLifeScore };
+      }
+      if (criteria.social.minDiversityScore !== undefined) {
+        filterCount++;
+        where.diversityScore = { ...where.diversityScore, gte: criteria.social.minDiversityScore };
+      }
+      if (criteria.social.maxDiversityScore !== undefined) {
+        filterCount++;
+        where.diversityScore = { ...where.diversityScore, lte: criteria.social.maxDiversityScore };
+      }
+      if (criteria.social.minPartyScene !== undefined) {
+        filterCount++;
+        where.partySceneRating = { ...where.partySceneRating, gte: criteria.social.minPartyScene };
+      }
+      if (criteria.social.maxPartyScene !== undefined) {
+        filterCount++;
+        where.partySceneRating = { ...where.partySceneRating, lte: criteria.social.maxPartyScene };
+      }
+    }
+
+    // --- Career & Future Filters ---
+    if (criteria.future) {
+      if (criteria.future.minEmploymentRate !== undefined) {
+        filterCount++;
+        where.employmentRate = { ...where.employmentRate, gte: criteria.future.minEmploymentRate };
+      }
+      if (criteria.future.minAlumniNetwork !== undefined) {
+        filterCount++;
+        where.alumniNetwork = { ...where.alumniNetwork, gte: criteria.future.minAlumniNetwork };
+      }
+      if (criteria.future.minInternshipSupport !== undefined) {
+        filterCount++;
+        where.internshipSupport = { ...where.internshipSupport, gte: criteria.future.minInternshipSupport };
+      }
+      if (criteria.future.needsVisaSupport) {
+        filterCount++;
+        where.visaDurationMonths = { not: null };
+      }
+      if (criteria.future.minVisaDuration !== undefined) {
+        filterCount++;
+        where.visaDurationMonths = { ...where.visaDurationMonths, gte: criteria.future.minVisaDuration };
+      }
+    }
+
+    // --- Count total matching records for pagination ---
+    const totalResults = await prisma.university.count({ where });
+
+    // Calculate pagination values
+    const limit = criteria.limit || 20;
+    const page = criteria.page || 1;
+    const skip = (page - 1) * limit;
+    const totalPages = Math.ceil(totalResults / limit);
+
+    // --- Build orderBy clause based on sortBy ---
+    let orderBy: any = {};
+    switch (criteria.sortBy) {
+      case 'tuition_asc':
+        orderBy = { tuitionOutState: 'asc' };
+        break;
+      case 'tuition_desc':
+        orderBy = { tuitionOutState: 'desc' };
+        break;
+      case 'ranking_asc':
+        orderBy = { ranking: 'asc' };
+        break;
+      case 'ranking_desc':
+        orderBy = { ranking: 'desc' };
+        break;
+      case 'acceptanceRate_asc':
+        orderBy = { acceptanceRate: 'asc' };
+        break;
+      case 'acceptanceRate_desc':
+        orderBy = { acceptanceRate: 'desc' };
+        break;
+      case 'name_asc':
+        orderBy = { name: 'asc' };
+        break;
+      case 'name_desc':
+        orderBy = { name: 'desc' };
+        break;
+      case 'matchPercentage':
+      default:
+        // Will sort by match score after scoring
+        orderBy = { name: 'asc' }; // Temporary sort
+        break;
+    }
+
+    // --- Execute optimized database query ---
+    const universities = await prisma.university.findMany({
+      where,
+      orderBy,
+      skip,
+      take: limit,
+    });
+
+    // --- Calculate match scores for each university ---
+    let results: UniversityMatchResult[] = universities.map((uni) => {
+      // If user profile provided, calculate personalized score
+      if (criteria.userProfile) {
+        const mockProfile: MatchRequest = {
+          gpa: criteria.userProfile.gpa || 3.0,
+          satScore: criteria.userProfile.satScore,
+          actScore: criteria.userProfile.actScore,
+          preferredMajor: criteria.userProfile.preferredMajor || 'Undeclared',
+          maxBudget: criteria.userProfile.maxBudget || 50000,
+          needsVisaSupport: criteria.future?.needsVisaSupport || false,
+          strictMatch: criteria.strictFiltering || false,
+          importanceFactors: {
+            academics: 5,
+            social: 5,
+            cost: 5,
+            location: 5,
+            future: 5,
+          },
+        };
+
+        const scoringResult = this.calculateWeightedScore(uni, mockProfile, null);
+        const breakdown = this.calculateBreakdown(uni, mockProfile, null);
+
+        return {
+          university: uni,
+          matchScore: scoringResult.matchPercentage,
+          matchPercentage: scoringResult.matchPercentage,
+          breakdown,
+          scoreBreakdown: scoringResult.scoreBreakdown,
+        };
+      } else {
+        // No user profile - return neutral scores
+        const neutralBreakdown = {
+          academic: 75,
+          financial: 75,
+          social: 75,
+          location: 75,
+          future: 75,
+        };
+
+        return {
+          university: uni,
+          matchScore: 75,
+          matchPercentage: 75,
+          breakdown: neutralBreakdown,
+          scoreBreakdown: {
+            academic: { score: 75, weight: 40, contribution: 30 },
+            financial: { score: 75, weight: 30, contribution: 22.5 },
+            social: { score: 75, weight: 10, contribution: 7.5 },
+            location: { score: 75, weight: 15, contribution: 11.25 },
+            future: { score: 75, weight: 5, contribution: 3.75 },
+            total: 75,
+          },
+        };
+      }
+    });
+
+    // --- Sort by match percentage if requested ---
+    if (criteria.sortBy === 'matchPercentage') {
+      results = results.sort((a, b) => b.matchPercentage - a.matchPercentage);
+    }
+
+    // --- Tiered Access Restriction ---
+    // Free and anonymous users only see top 3 results (already sorted by match percentage)
+    let restrictedResults = results;
+    let isRestricted = false;
+    
+    // Apply restriction if user is unauthenticated or on FREE plan
+    if (userPlan === 'FREE' || isAnonymous) {
+      restrictedResults = results.slice(0, 3);
+      isRestricted = results.length > 3;
+      
+      if (isRestricted) {
+        console.log(`[SearchRestriction] ${isAnonymous ? 'Anonymous' : 'FREE'} user - limiting results from ${results.length} to 3`);
+      }
+    }
+
+    // --- Build response with pagination metadata ---
+    return {
+      results: restrictedResults,
+      pagination: {
+        currentPage: page,
+        totalPages: isRestricted ? 1 : totalPages, // Only 1 page for restricted results
+        totalResults: isRestricted ? 3 : totalResults, // Show restricted count
+        limit: isRestricted ? 3 : limit,
+        hasNextPage: isRestricted ? false : page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+      filters: {
+        applied: filterCount,
+      },
+      // Add restriction metadata
+      restricted: isRestricted ? {
+        reason: isAnonymous ? 'anonymous_user' : 'free_tier',
+        message: 'Upgrade to Premium to see all matching universities',
+        actualTotal: totalResults,
+        showing: 3,
+      } : undefined,
+    };
   }
 }

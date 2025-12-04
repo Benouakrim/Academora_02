@@ -1,14 +1,28 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { X, Plus, ArrowRight, Check, AlertTriangle } from 'lucide-react'
-import { useCompareStore, useCompareData } from '@/hooks/useCompare'
+import { X, Plus, ArrowRight, BarChart3, Table2, CreditCard, Sparkles } from 'lucide-react'
+import { useCompareStore, useCompareWithPredictions, useComparisonAnalysis } from '@/hooks/useCompare'
+import { useProfileCompleteness } from '@/hooks/useProfileCompleteness'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ComparisonChart from '@/components/compare/ComparisonChart'
+import { ProfileCompletenessBanner } from '@/components/compare/ProfileCompletenessBanner'
+import { FinancialPredictions } from '@/components/compare/FinancialPredictions'
+import { SmartRecommendations } from '@/components/compare/SmartRecommendations'
+import { ComparisonTable } from '@/components/compare/ComparisonTable'
+import { SaveComparisonDialog } from '@/components/compare/SaveComparisonDialog'
 
 export default function ComparePage() {
   const { selectedSlugs, removeUniversity } = useCompareStore()
-  const { data: universities, isLoading } = useCompareData()
+  const { data: comparisonData, isLoading } = useCompareWithPredictions()
+  const { data: profileCompleteness, isLoading: loadingProfile } = useProfileCompleteness()
+  
+  // Get university IDs for analysis
+  const universityIds = comparisonData?.universities?.map(u => u.id) || []
+  const { data: analysis, isLoading: loadingAnalysis } = useComparisonAnalysis(universityIds)
+
+  const [activeTab, setActiveTab] = useState<'overview' | 'table' | 'charts' | 'predictions'>('overview')
 
   if (selectedSlugs.length === 0) {
     return (
@@ -29,7 +43,7 @@ export default function ComparePage() {
     )
   }
 
-  if (isLoading) {
+  if (isLoading || loadingProfile) {
     return (
       <div className="container px-4 py-8 space-y-8">
         <Skeleton className="h-12 w-64" />
@@ -42,7 +56,8 @@ export default function ComparePage() {
     )
   }
 
-  const unis = universities || []
+  const unis = comparisonData?.universities || []
+  const predictions = comparisonData?.predictions || {}
 
   // Chart colors
   const COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444']
@@ -53,11 +68,10 @@ export default function ComparePage() {
   const costData = unis.map((u, i) => ({
     name: u.shortName || u.name,
     value: u.tuitionInternational || u.tuitionOutState || 0,
-    fill: ['#3b82f6', '#8b5cf6', '#f59e0b'][i % 3]
+    fill: COLORS[i % COLORS.length]
   }))
 
   // 2. Scores Radar (Radar)
-  // Transform data: [{ subject: 'Academic', MIT: 90, Stanford: 95 }, ...]
   const radarData = [
     { subject: 'Student Life', fullMark: 5 },
     { subject: 'Safety', fullMark: 5 },
@@ -65,7 +79,6 @@ export default function ComparePage() {
   ].map(metric => {
     const row: any = { subject: metric.subject }
     unis.forEach(u => {
-      // Normalize 0-5 scores to 0-100 for chart
       let val = 0
       if (metric.subject === 'Student Life') val = (u.studentLifeScore || 0) * 20
       if (metric.subject === 'Safety') val = (u.safetyRating || 0) * 20
@@ -86,19 +99,23 @@ export default function ComparePage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 dark:bg-black pb-20">
+      {/* Sticky Header */}
       <div className="bg-white dark:bg-neutral-900 border-b border-border sticky top-16 z-30 shadow-sm">
         <div className="container px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Comparison ({unis.length}/3)</h1>
+          <h1 className="text-2xl font-bold">Comparison ({unis.length}/5)</h1>
           <div className="flex gap-3">
-            {unis.length < 3 && (
+            {unis.length < 5 && (
               <Link to="/search">
                 <Button variant="outline" size="sm" className="hidden sm:flex">
                   <Plus className="mr-2 h-4 w-4" /> Add University
                 </Button>
               </Link>
             )}
-            <Link to="/dashboard">
-              <Button size="sm">Save Comparison</Button>
+            <SaveComparisonDialog universityIds={universityIds} />
+            <Link to="/dashboard/saved-comparisons">
+              <Button size="sm" variant="outline">
+                View Saved
+              </Button>
             </Link>
           </div>
         </div>
@@ -106,10 +123,36 @@ export default function ComparePage() {
 
       <div className="container px-4 py-8 space-y-10">
         
+        {/* Profile Completeness Banner */}
+        {profileCompleteness && !loadingProfile && (
+          <ProfileCompletenessBanner
+            isComplete={profileCompleteness.isComplete}
+            completionPercentage={profileCompleteness.completionPercentage}
+            missingFields={profileCompleteness.missingFields}
+          />
+        )}
+
+        {/* Smart Recommendations */}
+        {analysis && !loadingAnalysis && analysis.recommendations && (
+          <SmartRecommendations
+            recommendations={analysis.recommendations}
+            onSelectUniversity={(id) => {
+              const uni = unis.find(u => u.id === id)
+              if (uni) {
+                document.getElementById(`university-${uni.slug}`)?.scrollIntoView({ behavior: 'smooth' })
+              }
+            }}
+          />
+        )}
+
         {/* Header Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {unis.map((u) => (
-            <div key={u.id} className="relative group bg-white dark:bg-neutral-900 border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div
+              key={u.id}
+              id={`university-${u.slug}`}
+              className="relative group bg-white dark:bg-neutral-900 border rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow"
+            >
               <button
                 onClick={() => removeUniversity(u.slug)}
                 className="absolute top-3 right-3 p-2 rounded-full hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
@@ -135,7 +178,7 @@ export default function ComparePage() {
           ))}
           
           {/* Add Card Placeholder */}
-          {unis.length < 3 && (
+          {unis.length < 5 && (
             <Link to="/search" className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-6 hover:border-primary/50 hover:bg-primary/5 transition-colors group">
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Plus className="h-8 w-8 text-primary" />
@@ -145,77 +188,93 @@ export default function ComparePage() {
           )}
         </div>
 
-        {/* Visualizations */}
-        {unis.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <ComparisonChart 
-              title="Annual Tuition (International/Out-of-State)" 
-              type="bar" 
-              data={costData} 
-              dataKeys={['value']} // Single series per bar since data structure is flattened
-              unit="$"
-            />
-            {unis.length > 1 && (
-              <ComparisonChart 
-                title="Campus Life & Safety Scores" 
-                type="radar" 
-                data={radarData}
-                dataKeys={unis.map(u => u.shortName || u.name)}
-              />
-            )}
-            {unis.length >= 2 && (
-              <ComparisonChart 
-                title="Safety vs. Party Scene Analysis" 
-                type="scatter" 
-                data={scatterData}
-                dataKeys={[]}
-              />
-            )}
-          </div>
+        {/* Financial Aid Predictions */}
+        {comparisonData?.isProfileComplete && predictions && Object.keys(predictions).length > 0 && (
+          <FinancialPredictions universities={unis} predictions={predictions} />
         )}
 
-        {/* Detailed Table */}
-        {unis.length > 0 && (
-          <div className="bg-white dark:bg-neutral-900 rounded-xl border overflow-hidden shadow-sm">
-            <div className="p-6 border-b bg-neutral-50 dark:bg-neutral-800/50">
-              <h3 className="font-bold text-lg">Detailed Breakdown</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <tbody className="divide-y">
-                  {[
-                    { label: 'Acceptance Rate', render: (u: any) => u.acceptanceRate ? <Badge variant={u.acceptanceRate < 0.2 ? "destructive" : "secondary"}>{(u.acceptanceRate * 100).toFixed(1)}%</Badge> : '—' },
-                    { label: 'Average GPA', render: (u: any) => u.avgGpa || '—' },
-                    { label: 'SAT Range (Math)', render: (u: any) => u.satMath25 ? `${u.satMath25}-${u.satMath75}` : '—' },
-                    { label: 'SAT Range (Reading)', render: (u: any) => u.satEbrw25 ? `${u.satEbrw25}-${u.satEbrw75}` : '—' },
-                    { label: 'ACT Composite Range', render: (u: any) => u.actComposite25 ? `${u.actComposite25}-${u.actComposite75}` : '—' },
-                    { label: 'Student Population', render: (u: any) => u.studentPopulation?.toLocaleString() || '—' },
-                    { label: 'Intl. Students', render: (u: any) => u.percentInternational ? `${(u.percentInternational * 100).toFixed(0)}%` : '—' },
-                    { label: 'Safety Rating', render: (u: any) => u.safetyRating ? <Badge variant="outline" className="bg-green-50 text-green-700">{u.safetyRating}/5 ⭐</Badge> : '—' },
-                    { label: 'Party Scene', render: (u: any) => u.partySceneRating ? <Badge variant="outline" className="bg-purple-50 text-purple-700">{u.partySceneRating}/5 🎉</Badge> : '—' },
-                    { label: 'Climate Zone', render: (u: any) => u.climateZone || '—' },
-                    { label: 'Setting', render: (u: any) => u.setting || '—' },
-                    { label: 'Post-Grad Visa', render: (u: any) => u.visaDurationMonths ? <Badge variant={u.visaDurationMonths >= 24 ? "default" : "secondary"} className="flex items-center gap-1 w-fit"><Check className="h-3 w-3" /> {u.visaDurationMonths} Months</Badge> : <span className="text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Unknown</span> },
-                    { label: 'Alumni Network', render: (u: any) => u.alumniNetwork ? <Badge variant="outline">{u.alumniNetwork}/5</Badge> : '—' },
-                    { label: 'Internship Support', render: (u: any) => u.internshipSupport ? <Badge variant="outline">{u.internshipSupport}/5</Badge> : '—' },
-                  ].map((row, idx) => (
-                    <tr key={idx} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors">
-                      <td className="p-4 w-1/4 font-medium text-muted-foreground">{row.label}</td>
-                      {unis.map((u) => (
-                        <td key={u.id} className="p-4 w-1/4 font-medium border-l">
-                          {row.render(u)}
-                        </td>
-                      ))}
-                      {/* Pad empty columns */}
-                      {Array.from({ length: 3 - unis.length }).map((_, i) => <td key={i} className="p-4 w-1/4 border-l"></td>)}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        {/* Main Content Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
+            <TabsTrigger value="overview" className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">Overview</span>
+            </TabsTrigger>
+            <TabsTrigger value="table" className="flex items-center gap-2">
+              <Table2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Table</span>
+            </TabsTrigger>
+            <TabsTrigger value="charts" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Charts</span>
+            </TabsTrigger>
+            <TabsTrigger value="predictions" className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              <span className="hidden sm:inline">Costs</span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            <ComparisonTable universities={unis} />
+          </TabsContent>
+
+          {/* Table Tab - Full Detail */}
+          <TabsContent value="table">
+            <ComparisonTable universities={unis} />
+          </TabsContent>
+
+          {/* Charts Tab */}
+          <TabsContent value="charts" className="space-y-6">
+            {unis.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <ComparisonChart 
+                  title="Annual Tuition (International/Out-of-State)" 
+                  type="bar" 
+                  data={costData} 
+                  dataKeys={['value']}
+                  unit="$"
+                />
+                {unis.length > 1 && (
+                  <ComparisonChart 
+                    title="Campus Life & Safety Scores" 
+                    type="radar" 
+                    data={radarData}
+                    dataKeys={unis.map(u => u.shortName || u.name)}
+                  />
+                )}
+                {unis.length >= 2 && (
+                  <ComparisonChart 
+                    title="Safety vs. Party Scene Analysis" 
+                    type="scatter" 
+                    data={scatterData}
+                    dataKeys={[]}
+                  />
+                )}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Predictions Tab - Cost-focused */}
+          <TabsContent value="predictions" className="space-y-6">
+            {comparisonData?.isProfileComplete && predictions && Object.keys(predictions).length > 0 ? (
+              <FinancialPredictions universities={unis} predictions={predictions} />
+            ) : (
+              <div className="text-center py-12 bg-muted/30 rounded-lg">
+                <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-semibold mb-2">No Cost Predictions Available</h3>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Complete your academic and financial profile to see personalized cost estimates for each university.
+                </p>
+                <Link to="/dashboard/profile?tab=financial">
+                  <Button>Complete Profile</Button>
+                </Link>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )
 }
+

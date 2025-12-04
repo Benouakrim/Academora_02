@@ -551,3 +551,144 @@ describe('MatchingService - Core Algorithm Logic', () => {
     expect(result.length).toBeLessThanOrEqual(20);
   });
 });
+
+// ========================================
+// Discovery Engine - Tiered Access Tests
+// ========================================
+
+describe('MatchingService - Discovery Engine Tiered Access', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Create 10 mock universities for testing result restriction
+    const tenUniversities = Array.from({ length: 10 }, (_, i) => ({
+      ...mockUniversities[i % 3],
+      id: `uni-${i + 1}`,
+      name: `University ${i + 1}`,
+      slug: `university-${i + 1}`,
+      // Vary match scores for sorting test
+      avgGpa: 3.0 + (i * 0.1),
+      avgSatScore: 1200 + (i * 50),
+    }));
+    
+    vi.mocked(prisma.university.findMany).mockResolvedValue(tenUniversities as University[]);
+  });
+
+  afterEach(() => {
+    vi.mocked(prisma.university.findMany).mockReset();
+  });
+
+  // Test Case: Anonymous User Result Restriction
+  it('should limit anonymous users to top 3 results sorted by match percentage', async () => {
+    const criteria = {
+      searchText: '',
+      sortBy: 'matchPercentage' as const,
+      page: 1,
+      limit: 20,
+      includeReachSchools: true,
+      strictFiltering: false,
+    };
+
+    const result = await MatchingService.searchUniversities(
+      criteria,
+      'FREE', // Free plan
+      true // Anonymous user
+    );
+
+    // Should return exactly 3 results
+    expect(result.results.length).toBe(3);
+    
+    // Results should be sorted by matchPercentage in descending order
+    for (let i = 0; i < result.results.length - 1; i++) {
+      expect(result.results[i].matchPercentage).toBeGreaterThanOrEqual(
+        result.results[i + 1].matchPercentage
+      );
+    }
+
+    // Check restriction metadata
+    expect(result.restricted).toBeDefined();
+    expect(result.restricted?.reason).toBe('anonymous_user');
+    expect(result.restricted?.showing).toBe(3);
+    expect(result.restricted?.actualTotal).toBeGreaterThan(3);
+    
+    // Pagination should reflect restriction
+    expect(result.pagination.totalPages).toBe(1);
+    expect(result.pagination.totalResults).toBe(3);
+    expect(result.pagination.hasNextPage).toBe(false);
+    
+    console.log('[Test] Anonymous user correctly restricted to 3 results');
+  });
+
+  // Test Case: Free Tier User Result Restriction
+  it('should limit FREE tier users to top 3 results', async () => {
+    const criteria = {
+      searchText: '',
+      sortBy: 'matchPercentage' as const,
+      page: 1,
+      limit: 20,
+      includeReachSchools: true,
+      strictFiltering: false,
+    };
+
+    const result = await MatchingService.searchUniversities(
+      criteria,
+      'FREE', // Free plan
+      false // Authenticated user
+    );
+
+    // Should return exactly 3 results
+    expect(result.results.length).toBe(3);
+    
+    // Check restriction metadata
+    expect(result.restricted).toBeDefined();
+    expect(result.restricted?.reason).toBe('free_tier');
+    expect(result.restricted?.message).toContain('Premium');
+  });
+
+  // Test Case: Premium User Gets Full Results
+  it('should return all results for PREMIUM users without restriction', async () => {
+    const criteria = {
+      searchText: '',
+      sortBy: 'matchPercentage' as const,
+      page: 1,
+      limit: 20,
+      includeReachSchools: true,
+      strictFiltering: false,
+    };
+
+    const result = await MatchingService.searchUniversities(
+      criteria,
+      'PREMIUM', // Premium plan
+      false
+    );
+
+    // Should return all 10 results
+    expect(result.results.length).toBeGreaterThan(3);
+    
+    // No restriction metadata
+    expect(result.restricted).toBeUndefined();
+    
+    console.log(`[Test] Premium user received ${result.results.length} results without restriction`);
+  });
+
+  // Test Case: Admin User Gets Full Results
+  it('should return all results for ADMIN users without restriction', async () => {
+    const criteria = {
+      searchText: '',
+      sortBy: 'matchPercentage' as const,
+      page: 1,
+      limit: 20,
+      includeReachSchools: true,
+      strictFiltering: false,
+    };
+
+    const result = await MatchingService.searchUniversities(
+      criteria,
+      'ADMIN', // Admin plan
+      false
+    );
+
+    // Should return all results
+    expect(result.results.length).toBeGreaterThan(3);
+    expect(result.restricted).toBeUndefined();
+  });
+});

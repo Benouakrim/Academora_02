@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import enhanced editor styles */
+@import './editor.css';
+
 @layer base {
   :root {
     /* ========================================

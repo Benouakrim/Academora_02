@@ -1,0 +1,108 @@
+/* Enhanced Article Content Styles */
+
+/* Code blocks with syntax highlighting */
+.prose pre {
+  @apply bg-muted border border-border rounded-lg p-4 overflow-x-auto;
+}
+
+.prose pre code {
+  @apply bg-transparent p-0 text-sm font-mono;
+}
+
+/* Inline code */
+.prose code {
+  @apply bg-muted px-2 py-1 rounded text-sm text-primary font-mono;
+}
+
+.prose code::before,
+.prose code::after {
+  content: none;
+}
+
+/* Tables */
+.prose table {
+  @apply w-full border-collapse my-6;
+}
+
+.prose thead {
+  @apply bg-muted;
+}
+
+.prose th {
+  @apply border border-border p-3 text-left font-semibold;
+}
+
+.prose td {
+  @apply border border-border p-3;
+}
+
+.prose tr {
+  @apply border-b border-border;
+}
+
+/* Blockquotes */
+.prose blockquote {
+  @apply border-l-4 border-primary pl-6 italic bg-muted/30 py-2 my-6;
+}
+
+/* Images */
+.prose img {
+  @apply rounded-lg border border-border shadow-md my-6;
+}
+
+/* Headings with better spacing */
+.prose h1 {
+  @apply text-4xl mb-4 mt-8;
+}
+
+.prose h2 {
+  @apply text-3xl mb-3 mt-7;
+}
+
+.prose h3 {
+  @apply text-2xl mb-2 mt-6;
+}
+
+.prose h4 {
+  @apply text-xl mb-2 mt-5;
+}
+
+/* Paragraphs */
+.prose p {
+  @apply mb-4 leading-relaxed;
+}
+
+/* Lists */
+.prose ul,
+.prose ol {
+  @apply my-4 ml-6;
+}
+
+.prose li {
+  @apply mb-2 leading-relaxed;
+}
+
+/* Horizontal rules */
+.prose hr {
+  @apply my-8 border-border/40;
+}
+
+/* Links */
+.prose a {
+  @apply text-primary font-medium no-underline hover:underline;
+}
+
+/* Strong and emphasis */
+.prose strong {
+  @apply font-semibold;
+}
+
+.prose em {
+  @apply italic;
+}
+
+/* Subscript and superscript */
+.prose sub,
+.prose sup {
+  @apply text-xs;
+}

@@ -4,6 +4,7 @@ import { FinancialProfileService } from '../services/FinancialProfileService';
 import { SyncService } from '../services/SyncService';
 import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
+import { clerkClient } from '@clerk/express';
 
 const prisma = new PrismaClient();
 
@@ -12,7 +13,99 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
     const authFn = (req as any).auth as (() => { userId?: string } | undefined);
     const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined; // Clerk injects auth
     if (!clerkId) return res.status(401).json({ error: 'unauthenticated' });
-    const profile = await UserService.getProfile(clerkId);
+    
+    // Check if user exists in database
+    let profile = await prisma.user.findUnique({
+      where: { clerkId },
+      include: {
+        financialProfile: true,
+        savedUniversities: {
+          include: { 
+            university: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                city: true,
+                state: true,
+                country: true,
+                logoUrl: true,
+                tuitionOutState: true,
+                tuitionInternational: true,
+              }
+            } 
+          },
+          orderBy: { createdAt: 'desc' }
+        },
+      },
+    });
+    
+    // If user doesn't exist, create them with data from Clerk
+    if (!profile) {
+      try {
+        const clerkUser = await clerkClient.users.getUser(clerkId);
+        const email = clerkUser.emailAddresses?.[0]?.emailAddress || `user+${clerkId}@example.com`;
+        const firstName = clerkUser.firstName || undefined;
+        const lastName = clerkUser.lastName || undefined;
+        const avatarUrl = clerkUser.imageUrl || undefined;
+        
+        const newUser = await prisma.user.create({
+          data: { clerkId, email, firstName, lastName, avatarUrl },
+          include: {
+            financialProfile: true,
+            savedUniversities: {
+              include: { 
+                university: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    city: true,
+                    state: true,
+                    country: true,
+                    logoUrl: true,
+                    tuitionOutState: true,
+                    tuitionInternational: true,
+                  }
+                } 
+              },
+              orderBy: { createdAt: 'desc' }
+            },
+          },
+        });
+        
+        profile = newUser;
+      } catch (clerkError) {
+        // If we can't fetch from Clerk, create with minimal data
+        const newUser = await prisma.user.create({
+          data: { clerkId, email: `user+${clerkId}@example.com` },
+          include: {
+            financialProfile: true,
+            savedUniversities: {
+              include: { 
+                university: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    city: true,
+                    state: true,
+                    country: true,
+                    logoUrl: true,
+                    tuitionOutState: true,
+                    tuitionInternational: true,
+                  }
+                } 
+              },
+              orderBy: { createdAt: 'desc' }
+            },
+          },
+        });
+        
+        profile = newUser;
+      }
+    }
+    
     res.status(200).json(profile);
   } catch (err) {
     next(err);
@@ -100,13 +193,38 @@ export const getUserDashboard = async (req: Request, res: Response, next: NextFu
     const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
     if (!clerkId) throw new AppError(401, 'Unauthorized');
 
-    const user = await prisma.user.findUnique({ 
+    let user = await prisma.user.findUnique({ 
       where: { clerkId },
       include: {
         financialProfile: true, // Include 1:1 financial relation
       }
     });
-    if (!user) throw new AppError(404, 'User not found');
+    
+    // If user doesn't exist, create them with data from Clerk
+    if (!user) {
+      try {
+        const clerkUser = await clerkClient.users.getUser(clerkId);
+        const email = clerkUser.emailAddresses?.[0]?.emailAddress || `user+${clerkId}@example.com`;
+        const firstName = clerkUser.firstName || undefined;
+        const lastName = clerkUser.lastName || undefined;
+        const avatarUrl = clerkUser.imageUrl || undefined;
+        
+        user = await prisma.user.create({
+          data: { clerkId, email, firstName, lastName, avatarUrl },
+          include: {
+            financialProfile: true,
+          },
+        });
+      } catch (clerkError) {
+        // If we can't fetch from Clerk, create with minimal data
+        user = await prisma.user.create({
+          data: { clerkId, email: `user+${clerkId}@example.com` },
+          include: {
+            financialProfile: true,
+          },
+        });
+      }
+    }
 
     const [saved, reviews, articles] = await Promise.all([
       prisma.savedUniversity.findMany({

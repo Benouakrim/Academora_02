@@ -45,6 +45,7 @@ const AdminGroupsPage = lazy(() => import('@/pages/admin/AdminGroupsPage'));
 const GroupEditorPage = lazy(() => import('@/pages/admin/GroupEditorPage'));
 const AdminClaimsPage = lazy(() => import('@/pages/admin/AdminClaimsPage'));
 const AdminMicroContentPage = lazy(() => import('@/pages/admin/AdminMicroContentPage'));
+const AdminReferralsPage = lazy(() => import('@/pages/admin/AdminReferralsPage'));
 
 // User Pages
 const MyClaimsPage = lazy(() => import('@/pages/dashboard/MyClaimsPage'));
@@ -81,7 +82,7 @@ export default function App() {
             </Route>
 
             <Route element={<ProtectedRoute />}> 
-              <Route path="/write" element={<UserArticleEditor />} />
+              <Route path="/blog/write" element={<UserArticleEditor />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<DashboardPage />} />
@@ -110,6 +111,7 @@ export default function App() {
                 <Route path="articles/edit/:id" element={<ArticleEditorPage />} />
                 <Route path="reviews" element={<ReviewModerationPage />} />
                 <Route path="claims" element={<AdminClaimsPage />} />
+                <Route path="referrals" element={<AdminReferralsPage />} />
                 <Route path="micro-content" element={<AdminMicroContentPage />} />
                 <Route path="health" element={<AdminHealthPage />} />
               </Route>

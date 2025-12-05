@@ -6,10 +6,10 @@ export const usersSeed: SeedFunction = {
   seed: async (prisma: PrismaClient) => {
     const adminUser = await prisma.user.create({
       data: {
-        clerkId: "user_admin_demo_id",
-        email: "admin@academora.com",
-        firstName: "Admin",
-        lastName: "User",
+        clerkId: "user_36OJAvCba1yfey1kJ1E23oZNd8O",
+        email: "ay.perso2001@gmail.com",
+        firstName: "Ayoub",
+        lastName: "Benouakrim",
         role: UserRole.ADMIN,
         avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Admin",
         gpa: 4.0,

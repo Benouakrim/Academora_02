@@ -18,25 +18,24 @@ export default function UserArticleEditor() {
   const [featuredImage, setFeaturedImage] = useState('')
   
   // Fetch Categories for dropdown
-  const { data: categories } = useQuery({
-    queryKey: ['categories'],
+  const { data: taxonomies } = useQuery({
+    queryKey: ['taxonomies'],
     queryFn: async () => {
-      const res = await api.get('/articles/categories')
+      const res = await api.get('/articles/taxonomies')
       return res.data
     }
   })
 
-  // Submit Mutation
+  // Submit Mutation (draft or pending)
   const { mutate, isPending } = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (status: 'DRAFT' | 'PENDING') => {
       // Basic validation
-      if (!title || !content || !categoryId) throw new Error("Please fill all fields")
-      
+      if (!title || !content || !categoryId) throw new Error('Please fill all fields')
+
       // Auto-generate excerpt from content (first 150 chars)
       const excerpt = content.replace(/<[^>]+>/g, '').slice(0, 150) + '...'
       const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')
 
-      // Send to API (Legacy endpoints expected specific payload structure)
       await api.post('/articles', {
         title,
         slug: `${slug}-${Date.now()}`,
@@ -44,15 +43,16 @@ export default function UserArticleEditor() {
         excerpt,
         categoryId,
         featuredImage,
-        status: 'PUBLISHED'
+        status
       })
     },
-    onSuccess: () => {
-      toast.success('Article published successfully!')
+    onSuccess: (_, status) => {
+      toast.success(status === 'PENDING' ? 'Submitted for review' : 'Draft saved')
       navigate('/blog')
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Failed to publish article')
+      const msg = err?.response?.data?.message || err.message || 'Failed to submit article'
+      toast.error(msg)
     }
   })
 
@@ -62,8 +62,11 @@ export default function UserArticleEditor() {
         <h1 className="text-3xl font-bold">Write an Article</h1>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
-          <Button onClick={() => mutate()} disabled={isPending}>
-            {isPending ? 'Publishing...' : 'Publish Article'}
+          <Button variant="secondary" onClick={() => mutate('DRAFT')} disabled={isPending}>
+            {isPending ? 'Saving...' : 'Save Draft'}
+          </Button>
+          <Button onClick={() => mutate('PENDING')} disabled={isPending}>
+            {isPending ? 'Submitting...' : 'Submit for Review'}
           </Button>
         </div>
       </div>
@@ -89,7 +92,7 @@ export default function UserArticleEditor() {
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories?.map((c: any) => (
+                  {taxonomies?.categories?.map((c: any) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -100,7 +103,12 @@ export default function UserArticleEditor() {
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Content</label>
-          <RichTextEditor content={content} onChange={setContent} />
+          <RichTextEditor 
+            content={content} 
+            onChange={setContent} 
+            mode="user"
+            showStats={true}
+          />
         </div>
       </div>
     </div>

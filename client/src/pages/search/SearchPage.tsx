@@ -11,6 +11,7 @@ import UniversityMapLayout from '@/components/search/UniversityMapLayout';
 import PaginationControls from '@/components/search/PaginationControls';
 import CategoryWeightPanel from '@/components/search/CategoryWeightPanel';
 import MatchModeEmptyState from '@/components/search/MatchModeEmptyState';
+import CompareFloatingButton from '@/components/search/CompareFloatingButton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -216,6 +217,9 @@ export default function SearchPage() {
             </ErrorBoundary>
           </main>
       </div>
+
+      {/* Floating Compare Button */}
+      <CompareFloatingButton />
     </div>
   )
 }

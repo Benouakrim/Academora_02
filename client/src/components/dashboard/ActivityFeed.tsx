@@ -103,10 +103,10 @@ export default function ActivityFeed({ data }: { data: DashboardData }) {
                     {format(new Date(article.createdAt), 'MMM d, yyyy')}
                   </p>
                 </Link>
-              ))}
+              ))})
               {data.recent.articles.length === 0 && <p className="text-xs text-muted-foreground">No articles published yet.</p>}
             </div>
-            <Link to="/write">
+            <Link to="/blog/write">
               <Button variant="link" className="px-0 mt-2 h-auto text-xs">Write New Article <ArrowRight className="ml-1 h-3 w-3" /></Button>
             </Link>
           </CardContent>

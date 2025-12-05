@@ -26,6 +26,8 @@ enum ApplicationStatus {
 
 enum ArticleStatus {
   DRAFT
+  PENDING
+  REJECTED
   PUBLISHED
   ARCHIVED
 }
@@ -128,9 +130,12 @@ model User {
   // Relations
   academicProfile   AcademicProfile?
   financialProfile  FinancialProfile?
+  analysisWeights   AnalysisWeights?
   savedUniversities SavedUniversity[]
   comparisons       Comparison[]
-  articles          Article[]
+  articles          Article[] @relation("ArticleAuthor")
+  reviewedArticles  Article[] @relation("ArticleReviewer")
+  articleLikes      ArticleLike[]
   reviews           Review[]
   comments          Comment[]
   notifications     Notification[]
@@ -227,16 +232,37 @@ model University {
   percentInternational    Float?    // Legacy: percentage_international
   diversityScore          Float?    // 0.0 to 1.0
 
-  // --- Outcomes ---
+  // --- Outcomes & Success Metrics ---
   graduationRate        Float?
   retentionRate         Float?
-  employmentRate        Float?    // Legacy: employment_rate_6mo
+  employmentRate        Float?    // Legacy: employment_rate_6mo (6-month employment rate)
   averageStartingSalary Int?
+  
+  // Advanced Success Metrics
+  timeToEmploymentMonths Int?     // Average months to get first job
+  averageSalaryByMajor   Json?    // { "CS": 120000, "Business": 85000 }
+  ROIPercentage          Float?   // Return on investment percentage
+  alumniEarnings5Years   Int?     // Average salary 5 years after graduation
+  alumniEarnings10Years  Int?     // Average salary 10 years after graduation
   
   // Legacy Future/Outcome Fields
   internshipSupport     Int?      // 1-5 scale
   alumniNetwork         Int?      // 1-5 scale
   visaDurationMonths    Int?      // Legacy: post_study_work_visa_months
+  
+  // Research & Academic Excellence
+  researchOutputScore    Float?   // 0-100 scale based on publications/citations
+  citationIndex          Int?     // H-index for research output
+  fundedResearch         Int?     // Annual funded research in millions
+  
+  // Industry Partnerships & Opportunities
+  partnerCompaniesCount  Int?     // Number of industry partners
+  industryPartnerships   String[] // List of major partner companies
+  
+  // Additional Metrics
+  studentSatisfactionScore Float?  // 0-5 scale (from surveys)
+  geographicDiversityScore Float?  // 0-1 scale for geographic distribution
+  internshipPlacementRate  Float?  // 0-1 scale (percentage of students with internships)
 
   // --- Campus Life & Academics ---
   academicCalendar      AcademicCalendar? // Legacy: academic_calendar
@@ -259,6 +285,8 @@ model University {
   savedBy SavedUniversity[]
   reviews Review[]
   claims UniversityClaim[]
+  metricHistory UniversityMetricHistory[] // Historical metrics for trends
+  riskAssessments ComparisonRiskAssessment[] // Risk assessment snapshots
   
   // Claim ownership
   claimedBy User? @relation("UniversityClaim", fields: [claimedById], references: [id])
@@ -394,6 +422,10 @@ model Comparison {
   userId      String
 
   universityIds String[]
+  
+  // Relations to analysis data
+  riskAssessments ComparisonRiskAssessment[]
+  insights        ComparisonInsight[]
 
   createdAt DateTime @default(now())
 }
@@ -423,6 +455,7 @@ model Referral {
   referredUserId String         @unique
   status         ReferralStatus @default(PENDING)
   rewardClaimed  Boolean        @default(false)
+  rewardAmount   Int            @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -461,28 +494,71 @@ model Article {
   featuredImage String?
   status        ArticleStatus @default(DRAFT)
   publishedAt   DateTime?
+  
+  // Analytics
   viewCount     Int @default(0)
+  likeCount     Int @default(0)
+  shareCount    Int @default(0)
   
   // SEO
   metaTitle       String?
   metaDescription String?
+  focusKeyword    String?
+  canonicalUrl    String?
+  ogImage         String?
+
+  // Review & Moderation
+  rejectionReason String? @db.Text
+  reviewedAt      DateTime?
+  reviewedById    String?
+  reviewedBy      User?    @relation("ArticleReviewer", fields: [reviewedById], references: [id])
 
   // Relations
   authorId String
-  author   User   @relation(fields: [authorId], references: [id])
+  author   User   @relation("ArticleAuthor", fields: [authorId], references: [id])
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
   
   tags      Tag[]
-
   comments Comment[]
+  likes    ArticleLike[]
+  analytics ArticleAnalytics[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([slug])
   @@index([status])
+  @@index([authorId])
+}
+
+model ArticleLike {
+  id        String   @id @default(uuid())
+  articleId String
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([articleId, userId])
+  @@index([articleId])
+  @@index([userId])
+}
+
+model ArticleAnalytics {
+  id         String   @id @default(uuid())
+  articleId  String
+  article    Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  date       DateTime @default(now())
+  views      Int      @default(0)
+  likes      Int      @default(0)
+  comments   Int      @default(0)
+  shares     Int      @default(0)
+  
+  @@unique([articleId, date])
+  @@index([articleId])
+  @@index([date])
 }
 
 model Comment {
@@ -623,3 +699,94 @@ model UserBadge {
   @@index([userId])
   @@index([badgeId])
 }
+
+// --- Analysis & Comparison System ---
+
+// Historical metrics for trend analysis
+model UniversityMetricHistory {
+  id              String   @id @default(uuid())
+  university      University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  universityId    String
+  
+  // Historical snapshots
+  year            Int
+  ranking         Int?
+  acceptanceRate  Float?
+  tuitionCost     Int?
+  employmentRate  Float?
+  averageSalary   Int?
+  studentCount    Int?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([universityId, year])
+  @@index([universityId])
+  @@index([year])
+}
+
+// User's custom analysis weights
+model AnalysisWeights {
+  id              String   @id @default(uuid())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  
+  // Weight configuration (0-1 scale, should sum close to 1.0)
+  ranking         Float    @default(0.25)
+  cost            Float    @default(0.25)
+  acceptance      Float    @default(0.15)
+  employmentRate  Float    @default(0.15)
+  studentSatisfaction Float @default(0.10)
+  research        Float    @default(0.10)
+  
+  // User profile preferences for matching
+  targetSalary    Int?
+  careerFocus     String?  // e.g., "Tech", "Finance", "Medicine"
+  preferredLocation String?
+  internshipImportant Boolean @default(false)
+  researchImportant Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId])
+  @@index([userId])
+}
+
+// Risk assessment snapshot for comparisons
+model ComparisonRiskAssessment {
+  id              String   @id @default(uuid())
+  comparison      Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  comparisonId    String
+  university      University @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  universityId    String
+  
+  // Risk factors
+  riskFactors     Json     // Array of { factor: string, severity: "low"|"medium"|"high", description: string }
+  overallRiskScore Float   // 0-100 (higher = more risky)
+  recommendations String[] // Array of recommendations
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([comparisonId, universityId])
+  @@index([comparisonId])
+  @@index([universityId])
+}
+
+// Comparative insights (natural language analysis)
+model ComparisonInsight {
+  id              String   @id @default(uuid())
+  comparison      Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  comparisonId    String
+  
+  insight         String   @db.Text // Natural language analysis
+  insightType     String   // e.g., "cost_benefit", "career_outcome", "acceptance_difficulty"
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([comparisonId])
+  @@index([insightType])
+}
+

@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient, Prisma, UserRole } from '@prisma/client';
+import { PrismaClient, Prisma, UserRole, ArticleStatus } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 
 const prisma = new PrismaClient();
+const MAX_PENDING_ARTICLES = 3;
 
 // --- PUBLIC READ OPERATIONS ---
 
@@ -77,8 +78,14 @@ export const getArticleBySlug = async (req: Request, res: Response, next: NextFu
   try {
     const { slug } = req.params;
 
-    const article = await prisma.article.findUnique({
-      where: { slug },
+    // Accept either slug or id to support admin edit routes
+    const article = await prisma.article.findFirst({
+      where: {
+        OR: [
+          { slug },
+          { id: slug }
+        ]
+      },
       include: {
         category: true,
         tags: true,
@@ -126,7 +133,26 @@ export const createArticle = async (req: Request, res: Response, next: NextFunct
     const user = await prisma.user.findUnique({ where: { clerkId } });
     if (!user) throw new AppError(404, 'User not found');
 
-    const { title, slug, content, excerpt, categoryId, tags, featuredImage, status } = req.body;
+    const { title, slug, content, excerpt, categoryId, tags, featuredImage, status, metaTitle, metaDescription, focusKeyword, ogImage, canonicalUrl } = req.body;
+
+    // Decide final status based on role
+    let finalStatus: ArticleStatus = status || 'DRAFT';
+    if (user.role !== UserRole.ADMIN) {
+      // Non-admins cannot publish directly
+      if (status === 'PUBLISHED' || status === 'ARCHIVED') {
+        finalStatus = 'PENDING';
+      }
+
+      // Enforce max pending articles limit when submitting for review
+      if (finalStatus === 'PENDING') {
+        const pendingCount = await prisma.article.count({
+          where: { authorId: user.id, status: 'PENDING' }
+        });
+        if (pendingCount >= MAX_PENDING_ARTICLES) {
+          throw new AppError(400, `You have reached the maximum of ${MAX_PENDING_ARTICLES} pending articles.`);
+        }
+      }
+    }
 
     // Handle Tags: Expecting array of tag IDs. 
     // If you want to support creating tags on the fly, logic would be more complex.
@@ -140,8 +166,13 @@ export const createArticle = async (req: Request, res: Response, next: NextFunct
         content,
         excerpt: excerpt || content.substring(0, 150) + '...',
         featuredImage,
-        status,
-        publishedAt: status === 'PUBLISHED' ? new Date() : null,
+        status: finalStatus,
+        publishedAt: finalStatus === 'PUBLISHED' ? new Date() : null,
+        metaTitle: metaTitle || title,
+        metaDescription: metaDescription || excerpt || content.substring(0, 160),
+        focusKeyword,
+        ogImage,
+        canonicalUrl,
         author: { connect: { id: user.id } },
         category: { connect: { id: categoryId } },
         tags: { connect: tagsConnect }
@@ -172,14 +203,53 @@ export const updateArticle = async (req: Request, res: Response, next: NextFunct
       throw new AppError(403, 'You can only edit your own articles');
     }
 
-    const { title, content, excerpt, categoryId, tags, featuredImage, status } = req.body;
+    const { title, content, excerpt, categoryId, tags, featuredImage, status, metaTitle, metaDescription, focusKeyword, ogImage, canonicalUrl, rejectionReason } = req.body;
+
+    // Determine final status with role-based rules
+    let finalStatus: ArticleStatus = status || existing.status;
+
+    if (user.role !== UserRole.ADMIN) {
+      // Non-admins cannot publish/archived directly
+      if (finalStatus === 'PUBLISHED' || finalStatus === 'ARCHIVED') {
+        finalStatus = 'PENDING';
+      }
+
+      // Pending limit (exclude this article if already pending)
+      if (finalStatus === 'PENDING' && existing.status !== 'PENDING') {
+        const pendingCount = await prisma.article.count({
+          where: { authorId: user.id, status: 'PENDING', NOT: { id } }
+        });
+        if (pendingCount >= MAX_PENDING_ARTICLES) {
+          throw new AppError(400, `You have reached the maximum of ${MAX_PENDING_ARTICLES} pending articles.`);
+        }
+      }
+    }
 
     const updateData: any = {
-      title, content, excerpt, featuredImage, status
+      title, content, excerpt, featuredImage,
+      status: finalStatus,
+      metaTitle: metaTitle || title,
+      metaDescription: metaDescription || excerpt,
+      focusKeyword,
+      ogImage,
+      canonicalUrl
     };
 
-    if (status === 'PUBLISHED' && existing.status !== 'PUBLISHED') {
+    if (finalStatus === 'PUBLISHED' && existing.status !== 'PUBLISHED') {
       updateData.publishedAt = new Date();
+    }
+
+    if (user.role === UserRole.ADMIN && finalStatus === 'REJECTED') {
+      updateData.rejectionReason = rejectionReason || existing.rejectionReason || 'No reason provided';
+      updateData.reviewedAt = new Date();
+      updateData.reviewedBy = { connect: { id: user.id } };
+    }
+
+    // If user resubmits, clear old rejection metadata
+    if (finalStatus === 'PENDING') {
+      updateData.rejectionReason = null;
+      updateData.reviewedAt = null;
+      updateData.reviewedBy = { disconnect: true };
     }
 
     if (categoryId) {
@@ -244,6 +314,301 @@ export const recordView = async (req: Request, res: Response, next: NextFunction
     });
 
     res.status(200).json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const likeArticle = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const authFn = (req as any).auth;
+    const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
+    if (!clerkId) throw new AppError(401, 'Unauthorized');
+
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new AppError(404, 'User not found');
+
+    const article = await prisma.article.findUnique({ where: { id } });
+    if (!article) throw new AppError(404, 'Article not found');
+
+    // Check if already liked
+    const existingLike = await prisma.articleLike.findUnique({
+      where: {
+        articleId_userId: {
+          articleId: id,
+          userId: user.id
+        }
+      }
+    });
+
+    if (existingLike) {
+      throw new AppError(400, 'Article already liked');
+    }
+
+    // Create like and increment count
+    await prisma.$transaction([
+      prisma.articleLike.create({
+        data: {
+          articleId: id,
+          userId: user.id
+        }
+      }),
+      prisma.article.update({
+        where: { id },
+        data: { likeCount: { increment: 1 } }
+      })
+    ]);
+
+    res.status(200).json({ success: true, liked: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const unlikeArticle = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const authFn = (req as any).auth;
+    const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
+    if (!clerkId) throw new AppError(401, 'Unauthorized');
+
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new AppError(404, 'User not found');
+
+    const article = await prisma.article.findUnique({ where: { id } });
+    if (!article) throw new AppError(404, 'Article not found');
+
+    // Check if liked
+    const existingLike = await prisma.articleLike.findUnique({
+      where: {
+        articleId_userId: {
+          articleId: id,
+          userId: user.id
+        }
+      }
+    });
+
+    if (!existingLike) {
+      throw new AppError(400, 'Article not liked');
+    }
+
+    // Delete like and decrement count
+    await prisma.$transaction([
+      prisma.articleLike.delete({
+        where: {
+          articleId_userId: {
+            articleId: id,
+            userId: user.id
+          }
+        }
+      }),
+      prisma.article.update({
+        where: { id },
+        data: { likeCount: { decrement: 1 } }
+      })
+    ]);
+
+    res.status(200).json({ success: true, liked: false });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getLikeStatus = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const authFn = (req as any).auth;
+    const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
+    if (!clerkId) throw new AppError(401, 'Unauthorized');
+
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new AppError(404, 'User not found');
+
+    const existingLike = await prisma.articleLike.findUnique({
+      where: {
+        articleId_userId: {
+          articleId: id,
+          userId: user.id
+        }
+      }
+    });
+
+    res.status(200).json({ isLiked: !!existingLike });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const shareArticle = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const article = await prisma.article.findUnique({
+      where: { id },
+      select: { id: true }
+    });
+
+    if (!article) {
+      throw new AppError(404, 'Article not found');
+    }
+
+    await prisma.article.update({
+      where: { id },
+      data: { shareCount: { increment: 1 } }
+    });
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// --- USER WORKFLOW: OWN ARTICLES ---
+export const getMyArticles = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authFn = (req as any).auth;
+    const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
+    if (!clerkId) throw new AppError(401, 'Unauthorized');
+
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new AppError(404, 'User not found');
+
+    const articles = await prisma.article.findMany({
+      where: { authorId: user.id },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        category: { select: { name: true, slug: true } },
+        _count: { select: { comments: true } }
+      }
+    });
+
+    res.status(200).json({ data: articles });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const submitArticle = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const authFn = (req as any).auth;
+    const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
+    if (!clerkId) throw new AppError(401, 'Unauthorized');
+
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new AppError(404, 'User not found');
+
+    const article = await prisma.article.findUnique({ where: { id } });
+    if (!article) throw new AppError(404, 'Article not found');
+    if (article.authorId !== user.id && user.role !== UserRole.ADMIN) {
+      throw new AppError(403, 'You can only submit your own articles');
+    }
+
+    // Enforce pending limit (exclude this article if already pending)
+    if (article.status !== 'PENDING') {
+      const pendingCount = await prisma.article.count({
+        where: { authorId: article.authorId, status: 'PENDING', NOT: { id } }
+      });
+      if (pendingCount >= MAX_PENDING_ARTICLES) {
+        throw new AppError(400, `You have reached the maximum of ${MAX_PENDING_ARTICLES} pending articles.`);
+      }
+    }
+
+    const updated = await prisma.article.update({
+      where: { id },
+      data: {
+        status: 'PENDING',
+        rejectionReason: null,
+        reviewedAt: null,
+        reviewedBy: { disconnect: true },
+        // keep publishedAt null until approved
+      }
+    });
+
+    res.status(200).json(updated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// --- ADMIN WORKFLOW: REVIEW ---
+export const getPendingArticles = async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const pending = await prisma.article.findMany({
+      where: { status: 'PENDING' },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        author: { select: { firstName: true, lastName: true, email: true } },
+        category: { select: { name: true } }
+      }
+    });
+
+    res.status(200).json({ data: pending });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const approveArticle = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const authFn = (req as any).auth;
+    const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
+    if (!clerkId) throw new AppError(401, 'Unauthorized');
+
+    const reviewer = await prisma.user.findUnique({ where: { clerkId } });
+    if (!reviewer) throw new AppError(404, 'User not found');
+    if (reviewer.role !== UserRole.ADMIN) throw new AppError(403, 'Admin only');
+
+    const article = await prisma.article.findUnique({ where: { id } });
+    if (!article) throw new AppError(404, 'Article not found');
+
+    const updated = await prisma.article.update({
+      where: { id },
+      data: {
+        status: 'PUBLISHED',
+        publishedAt: article.publishedAt || new Date(),
+        rejectionReason: null,
+        reviewedAt: new Date(),
+        reviewedBy: { connect: { id: reviewer.id } }
+      }
+    });
+
+    res.status(200).json(updated);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const rejectArticle = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const authFn = (req as any).auth;
+    const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
+    if (!clerkId) throw new AppError(401, 'Unauthorized');
+
+    const reviewer = await prisma.user.findUnique({ where: { clerkId } });
+    if (!reviewer) throw new AppError(404, 'User not found');
+    if (reviewer.role !== UserRole.ADMIN) throw new AppError(403, 'Admin only');
+
+    const article = await prisma.article.findUnique({ where: { id } });
+    if (!article) throw new AppError(404, 'Article not found');
+
+    const rejectionReason = reason || req.body.rejectionReason || 'No reason provided';
+
+    const updated = await prisma.article.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        rejectionReason,
+        reviewedAt: new Date(),
+        reviewedBy: { connect: { id: reviewer.id } }
+      }
+    });
+
+    res.status(200).json(updated);
   } catch (err) {
     next(err);
   }

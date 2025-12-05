@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ComparisonChart from '@/components/compare/ComparisonChart'
 import { ProfileCompletenessBanner } from '@/components/compare/ProfileCompletenessBanner'
+import UniversityQuickAdd from '@/components/compare/UniversityQuickAdd'
 import { FinancialPredictions } from '@/components/compare/FinancialPredictions'
 import { SmartRecommendations } from '@/components/compare/SmartRecommendations'
 import { ComparisonTable } from '@/components/compare/ComparisonTable'
@@ -17,6 +18,9 @@ export default function ComparePage() {
   const { selectedSlugs, removeUniversity } = useCompareStore()
   const { data: comparisonData, isLoading } = useCompareWithPredictions()
   const { data: profileCompleteness, isLoading: loadingProfile } = useProfileCompleteness()
+  
+  // State for quick add modal
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
   
   // Get university IDs for analysis
   const universityIds = comparisonData?.universities?.map(u => u.id) || []
@@ -105,11 +109,14 @@ export default function ComparePage() {
           <h1 className="text-2xl font-bold">Comparison ({unis.length}/5)</h1>
           <div className="flex gap-3">
             {unis.length < 5 && (
-              <Link to="/search">
-                <Button variant="outline" size="sm" className="hidden sm:flex">
-                  <Plus className="mr-2 h-4 w-4" /> Add University
-                </Button>
-              </Link>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="hidden sm:flex"
+                onClick={() => setQuickAddOpen(true)}
+              >
+                <Plus className="mr-2 h-4 w-4" /> Add University
+              </Button>
             )}
             <SaveComparisonDialog universityIds={universityIds} />
             <Link to="/dashboard/saved-comparisons">
@@ -179,12 +186,15 @@ export default function ComparePage() {
           
           {/* Add Card Placeholder */}
           {unis.length < 5 && (
-            <Link to="/search" className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-6 hover:border-primary/50 hover:bg-primary/5 transition-colors group">
+            <button 
+              onClick={() => setQuickAddOpen(true)}
+              className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-6 hover:border-primary/50 hover:bg-primary/5 transition-colors group"
+            >
               <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Plus className="h-8 w-8 text-primary" />
               </div>
               <span className="font-medium text-muted-foreground">Add University</span>
-            </Link>
+            </button>
           )}
         </div>
 
@@ -274,6 +284,9 @@ export default function ComparePage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Quick Add Modal */}
+      <UniversityQuickAdd open={quickAddOpen} onOpenChange={setQuickAddOpen} />
     </div>
   )
 }

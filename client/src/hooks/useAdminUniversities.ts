@@ -50,7 +50,11 @@ export function useCreateUniversity() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (payload: Partial<University>) => {
-      const res = await api.post('/universities', payload)
+      // Clean empty strings and undefined values to prevent Prisma validation errors
+      const cleaned = Object.fromEntries(
+        Object.entries(payload).filter(([, v]) => v !== '' && v !== undefined && v !== null)
+      )
+      const res = await api.post('/universities', cleaned)
       return res.data
     },
     onSuccess: () => {
@@ -63,7 +67,11 @@ export function useUpdateUniversity() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<University> }) => {
-      const res = await api.put(`/universities/${id}`, data)
+      // Clean empty strings and undefined values to prevent Prisma validation errors
+      const cleaned = Object.fromEntries(
+        Object.entries(data).filter(([, v]) => v !== '' && v !== undefined && v !== null)
+      )
+      const res = await api.put(`/universities/${id}`, cleaned)
       return res.data
     },
     onSuccess: () => {

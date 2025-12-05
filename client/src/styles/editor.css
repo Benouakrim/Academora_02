@@ -1,0 +1,357 @@
+/* Enhanced Editor Styling - Modern, Polished Design */
+
+/* Editor Container with Custom Scrollbar */
+.editor-content {
+  position: relative;
+}
+
+.editor-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.editor-content::-webkit-scrollbar-track {
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 4px;
+}
+
+.editor-content::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.editor-content::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Gradient Typography for Headings */
+.editor-content h1 {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 50%, hsl(var(--primary) / 0.7) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  font-size: 2.5rem;
+  line-height: 1.2;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  letter-spacing: -0.02em;
+}
+
+.editor-content h2 {
+  background: linear-gradient(135deg, hsl(var(--foreground)) 0%, hsl(var(--foreground) / 0.8) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+  font-size: 2rem;
+  line-height: 1.3;
+  margin-top: 1.75rem;
+  margin-bottom: 0.875rem;
+  letter-spacing: -0.015em;
+}
+
+.editor-content h3 {
+  font-weight: 600;
+  font-size: 1.5rem;
+  line-height: 1.4;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: hsl(var(--foreground));
+}
+
+.editor-content h4 {
+  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1.5;
+  margin-top: 1.25rem;
+  margin-bottom: 0.625rem;
+  color: hsl(var(--foreground) / 0.9);
+}
+
+/* Enhanced Code Blocks - Mac Style with Gradient */
+.editor-content pre {
+  background: linear-gradient(135deg, 
+    hsl(222, 47%, 11%) 0%, 
+    hsl(222, 47%, 8%) 100%
+  );
+  border: 1px solid hsl(215, 20%, 25%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  box-shadow: 
+    0 4px 6px -1px rgb(0 0 0 / 0.1),
+    0 2px 4px -2px rgb(0 0 0 / 0.1),
+    0 0 0 1px rgb(255 255 255 / 0.05) inset;
+  position: relative;
+}
+
+.editor-content pre::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  background: linear-gradient(180deg, 
+    hsl(215, 20%, 20%) 0%, 
+    transparent 100%
+  );
+  border-radius: 12px 12px 0 0;
+  pointer-events: none;
+}
+
+.editor-content pre code {
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  color: hsl(210, 40%, 80%);
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+/* Inline Code */
+.editor-content code {
+  background: hsl(var(--muted));
+  color: hsl(var(--primary));
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  border: 1px solid hsl(var(--border));
+}
+
+/* Interactive Images with Hover Effects */
+.editor-content img {
+  display: block;
+  margin: 2rem auto;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  max-width: 100%;
+  height: auto;
+}
+
+.editor-content img:hover {
+  transform: scale(1.02);
+  box-shadow: 
+    0 20px 25px -5px rgb(0 0 0 / 0.1),
+    0 8px 10px -6px rgb(0 0 0 / 0.1);
+  border-color: hsl(var(--primary) / 0.5);
+}
+
+/* Enhanced Blockquotes */
+.editor-content blockquote {
+  border-left: 4px solid hsl(var(--primary));
+  padding-left: 1.5rem;
+  margin: 1.5rem 0;
+  font-style: italic;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--muted) / 0.3);
+  padding: 1rem 1.5rem;
+  border-radius: 0 8px 8px 0;
+}
+
+.editor-content blockquote p {
+  margin: 0;
+}
+
+/* Enhanced Lists */
+.editor-content ul,
+.editor-content ol {
+  margin: 1rem 0;
+  padding-left: 2rem;
+}
+
+.editor-content li {
+  margin: 0.5rem 0;
+  line-height: 1.7;
+}
+
+.editor-content ul > li::marker {
+  color: hsl(var(--primary));
+}
+
+.editor-content ol > li::marker {
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
+/* Enhanced Tables */
+.editor-content table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 2rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+}
+
+.editor-content table th {
+  background: linear-gradient(180deg, 
+    hsl(var(--muted)) 0%, 
+    hsl(var(--muted) / 0.8) 100%
+  );
+  font-weight: 600;
+  padding: 0.875rem 1rem;
+  text-align: left;
+  border-bottom: 2px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+.editor-content table td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.editor-content table tr:last-child td {
+  border-bottom: none;
+}
+
+.editor-content table tr:hover {
+  background: hsl(var(--muted) / 0.3);
+  transition: background 0.15s;
+}
+
+/* Horizontal Rule */
+.editor-content hr {
+  border: none;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    hsl(var(--border)) 50%, 
+    transparent 100%
+  );
+  margin: 2rem 0;
+}
+
+/* Links */
+.editor-content a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+  transition: all 0.2s;
+}
+
+.editor-content a:hover {
+  color: hsl(var(--primary) / 0.8);
+  text-decoration-color: hsl(var(--primary) / 0.5);
+}
+
+/* YouTube/Video Embeds */
+.editor-content iframe {
+  display: block;
+  margin: 2rem auto;
+  border-radius: 12px;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  border: 1px solid hsl(var(--border));
+  max-width: 100%;
+}
+
+/* Placeholder Text */
+.editor-content.is-editor-empty:before {
+  color: hsl(var(--muted-foreground));
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  font-style: italic;
+}
+
+/* Focus States */
+.editor-content:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Selected Text */
+.editor-content ::selection {
+  background: hsl(var(--primary) / 0.2);
+}
+
+/* Animations */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slideDown {
+  animation: slideDown 0.2s ease-out;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Highlight colors */
+.editor-content mark {
+  background: hsl(45, 100%, 75%);
+  color: hsl(45, 100%, 15%);
+  padding: 0.125em 0.25em;
+  border-radius: 3px;
+}
+
+.dark .editor-content mark {
+  background: hsl(45, 90%, 35%);
+  color: hsl(45, 100%, 95%);
+}
+
+/* Subscript & Superscript */
+.editor-content sub,
+.editor-content sup {
+  font-size: 0.75em;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+.editor-content sub {
+  bottom: -0.25em;
+}
+
+.editor-content sup {
+  top: -0.5em;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .editor-content h1 {
+    font-size: 2rem;
+  }
+  
+  .editor-content h2 {
+    font-size: 1.75rem;
+  }
+  
+  .editor-content h3 {
+    font-size: 1.25rem;
+  }
+  
+  .editor-content pre {
+    padding: 1rem;
+    border-radius: 8px;
+  }
+}

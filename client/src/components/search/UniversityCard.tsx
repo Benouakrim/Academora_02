@@ -10,6 +10,7 @@ import { useSearchStore } from '@/store/useSearchStore'
 import MatchBreakdownPanel from '@/components/search/MatchBreakdownPanel'
 import type { UniversityMatchResult } from '@/hooks/useUniversitySearch'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 // Circular Progress Component for Match Score
 function CircularProgress({ value, size = 80 }: { value: number; size?: number }) {
@@ -275,8 +276,24 @@ export default function UniversityCard({ result }: { result: UniversityMatchResu
               : "gap-2 bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90 border-0 shadow-md"}
             onClick={(e) => {
               e.preventDefault()
-              isSelected ? removeUniversity(university.slug) : addUniversity(university.slug)
+              if (isSelected) {
+                removeUniversity(university.slug)
+                toast.success(`Removed ${university.name} from comparison`)
+              } else {
+                if (selectedSlugs.length >= 5) {
+                  toast.error('Maximum 5 universities can be compared')
+                  return
+                }
+                addUniversity(university.slug)
+                toast.success(`Added ${university.name} to comparison`, {
+                  action: {
+                    label: 'View',
+                    onClick: () => window.location.href = '/compare'
+                  }
+                })
+              }
             }}
+            disabled={!isSelected && selectedSlugs.length >= 5}
           >
             {isSelected ? (
               <>

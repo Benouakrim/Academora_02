@@ -106,4 +106,220 @@ router.post('/reconcile', requireAdmin, async (req: Request, res: Response, next
     }
 });
 
+// --- REFERRAL ADMIN ROUTES ---
+
+// GET /api/admin/referrals/metrics - Get referral system metrics
+router.get('/referrals/metrics', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const [totalReferrals, completedReferrals, pendingReferrals, totalRewardsGiven, activeCodes, uniqueReferrers] = await Promise.all([
+      prisma.referral.count(),
+      prisma.referral.count({ where: { status: 'COMPLETED' } }),
+      prisma.referral.count({ where: { status: 'PENDING' } }),
+      prisma.referral.aggregate({
+        where: { status: 'COMPLETED' },
+        _sum: { rewardAmount: true }
+      }),
+      prisma.user.count({ where: { referralCode: { not: null } } }),
+      prisma.referral.findMany({
+        distinct: ['referrerId'],
+        select: { referrerId: true }
+      })
+    ]);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        totalReferrals,
+        completedReferrals,
+        pendingReferrals,
+        totalRewardsGiven: totalRewardsGiven._sum.rewardAmount || 0,
+        activeCodes,
+        uniqueReferrers: uniqueReferrers.length
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/admin/referrals - Get all referrals with optional status filter
+router.get('/referrals', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const status = req.query.status as string | undefined;
+    const referrals = await prisma.referral.findMany({
+      where: status ? { status: status as any } : {},
+      orderBy: { createdAt: 'desc' },
+      include: {
+        referrer: { select: { firstName: true, lastName: true, email: true } },
+        referredUser: { select: { firstName: true, lastName: true, email: true } }
+      },
+      take: 100
+    });
+
+    res.status(200).json({ status: 'success', data: referrals });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/admin/referrals/leaderboard - Get top referrers
+router.get('/referrals/leaderboard', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const topReferrers = await prisma.referral.groupBy({
+      by: ['referrerId'],
+      _count: {
+        id: true
+      },
+      where: { status: 'COMPLETED' },
+      orderBy: {
+        _count: {
+          id: 'desc'
+        }
+      },
+      take: 10
+    });
+
+    const detailedReferrers = await Promise.all(
+      topReferrers.map(async (ref) => {
+        const user = await prisma.user.findUnique({
+          where: { id: ref.referrerId },
+          select: { id: true, firstName: true, lastName: true, email: true }
+        });
+        
+        const allCount = await prisma.referral.count({
+          where: { referrerId: ref.referrerId }
+        });
+
+        return {
+          ...user,
+          completedCount: ref._count.id,
+          referralCount: allCount
+        };
+      })
+    );
+
+    res.status(200).json({ status: 'success', data: detailedReferrers });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/admin/referrals/codes - Get all referral codes
+router.get('/referrals/codes', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const codes = await prisma.user.findMany({
+      where: { referralCode: { not: null } },
+      select: {
+        referralCode: true,
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const formattedCodes = codes.map(user => ({
+      code: user.referralCode,
+      userId: user.id,
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email
+      },
+      isActive: true // TODO: Add isActive field to User model if needed
+    }));
+
+    res.status(200).json({ status: 'success', data: formattedCodes });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/admin/referrals/codes/:code/toggle - Toggle referral code status
+router.patch('/referrals/codes/:code/toggle', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { code } = req.params;
+    const { isActive } = req.body;
+
+    // TODO: Implement isActive field on User model
+    // For now, just return success
+    res.status(200).json({ 
+      status: 'success', 
+      message: 'Code status would be toggled (feature requires model update)',
+      data: { code, isActive }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/admin/referrals/settings - Get referral system settings
+router.get('/referrals/settings', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Return default settings (TODO: Store in database)
+    const settings = {
+      rewardsEnabled: true,
+      pointsPerReferral: 100,
+      minimumReferralsForReward: 5,
+      rewardAmount: 50,
+      codeExpiryDays: 365,
+      maxCodesPerUser: 1
+    };
+
+    res.status(200).json({ status: 'success', data: settings });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/admin/referrals/settings - Update referral system settings
+router.patch('/referrals/settings', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // TODO: Store settings in database
+    res.status(200).json({ 
+      status: 'success', 
+      message: 'Settings updated (feature requires database implementation)',
+      data: req.body 
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/admin/referrals/export/csv - Export referrals as CSV
+router.get('/referrals/export/csv', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const referrals = await prisma.referral.findMany({
+      include: {
+        referrer: { select: { firstName: true, lastName: true, email: true } },
+        referredUser: { select: { firstName: true, lastName: true, email: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    // Create CSV content
+    const headers = ['Referrer Name', 'Referrer Email', 'Referred User Name', 'Referred User Email', 'Status', 'Created At'];
+    const rows = referrals.map(ref => [
+      `${ref.referrer.firstName} ${ref.referrer.lastName}`,
+      ref.referrer.email,
+      `${ref.referredUser.firstName} ${ref.referredUser.lastName}`,
+      ref.referredUser.email,
+      ref.status,
+      new Date(ref.createdAt).toISOString()
+    ]);
+
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="referrals-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.status(200).send(csv);
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router

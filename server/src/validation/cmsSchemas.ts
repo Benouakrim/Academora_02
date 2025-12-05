@@ -11,6 +11,12 @@ export const createArticleSchema = {
     categoryId: z.string().uuid(),
     tags: z.array(z.string()).optional(), // Array of tag IDs or Names (we'll handle logic)
     status: z.nativeEnum(ArticleStatus).default(ArticleStatus.DRAFT),
+    // SEO Fields
+    metaTitle: z.string().max(60).optional().or(z.literal('')),
+    metaDescription: z.string().max(160).optional().or(z.literal('')),
+    focusKeyword: z.string().max(100).optional().or(z.literal('')),
+    ogImage: z.string().url().optional().or(z.literal('')),
+    canonicalUrl: z.string().url().optional().or(z.literal('')),
   }),
 };
 

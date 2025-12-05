@@ -105,7 +105,7 @@ export default function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-3">
-                <Link to="/write">
+                <Link to="/blog/write">
                   <Button variant="outline" size="sm" className="hidden lg:flex">
                     Write Article
                   </Button>

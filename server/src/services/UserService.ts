@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import { ReferralService } from './ReferralService';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export class UserService {
   static async getProfile(clerkId: string) {

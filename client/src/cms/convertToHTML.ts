@@ -15,8 +15,7 @@ import type {
   TimelineStep,
   GuideStep,
   TabItem,
-  ComparisonColumn,
-  CalculatorField
+  ComparisonColumn
 } from './types/BlockTypes';
 
 /**

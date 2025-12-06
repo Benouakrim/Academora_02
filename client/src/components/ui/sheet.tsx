@@ -28,14 +28,24 @@ export function SheetTrigger({ asChild, children, className }: { asChild?: boole
   if (!ctx) throw new Error('SheetTrigger must be used within Sheet')
 
   if (asChild && React.isValidElement(children)) {
+    const originalOnClick = children.props.onClick
+    const handleClick = (e: React.MouseEvent<HTMLElement>) => {
+      e.preventDefault()
+      e.stopPropagation()
+      ctx.setOpen(true)
+      // Call the original onClick if it exists
+      if (typeof originalOnClick === 'function') {
+        originalOnClick(e)
+      }
+    }
     return React.cloneElement(children, {
-      onClick: () => ctx.setOpen(true),
+      onClick: handleClick,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any)
   }
 
   return (
-    <button onClick={() => ctx.setOpen(true)} className={className}>
+    <button type="button" onClick={() => ctx.setOpen(true)} className={className}>
       {children}
     </button>
   )
@@ -58,6 +68,7 @@ export function SheetContent({ side = 'right', className, children }: { side?: '
       <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => ctx.setOpen(false)} />
       <div className={cn('fixed z-50 bg-background p-6 shadow-lg', sideClasses[side], className)}>
         <button
+          type="button"
           onClick={() => ctx.setOpen(false)}
           className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         >

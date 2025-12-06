@@ -36,6 +36,13 @@ export const primaryGoalEnum = z.enum([
   'OTHER',
 ])
 
+export const preferredStudyModeEnum = z.enum([
+  'ON_CAMPUS',
+  'ONLINE',
+  'HYBRID',
+  'NO_PREFERENCE',
+])
+
 // Step 1: Account Type Selection
 export const accountTypeStepSchema = z.object({
   accountType: accountTypeEnum,
@@ -49,6 +56,8 @@ export const personaRoleStepSchema = z.object({
   academicLevel: z.string().optional(),
   location: z.string().optional(),
   interests: z.array(z.string()).optional(),
+  phoneNumber: z.string().optional(),
+  preferredStudyMode: preferredStudyModeEnum.optional(),
 })
 
 // Step 2: Organization Details
@@ -72,6 +81,8 @@ export const onboardingFormSchema = z
     academicLevel: z.string().optional(),
     location: z.string().optional(),
     interests: z.array(z.string()).optional(),
+    phoneNumber: z.string().optional(),
+    preferredStudyMode: preferredStudyModeEnum.optional(),
     
     // Step 2 - Organization fields (conditional)
     organizationName: z.string().optional(),
@@ -116,6 +127,8 @@ export type OnboardingPayload = {
     academicLevel?: string
     location?: string
     interests?: string[]
+    phoneNumber?: string
+    preferredStudyMode?: string
     organizationName?: string
     organizationType?: string
     size?: string
@@ -138,6 +151,8 @@ export function transformToPayload(values: OnboardingFormValues): OnboardingPayl
         academicLevel: values.academicLevel,
         location: values.location,
         interests: values.interests,
+        phoneNumber: values.phoneNumber,
+        preferredStudyMode: values.preferredStudyMode,
       },
       version: '1.0',
       completedAt: new Date().toISOString(),

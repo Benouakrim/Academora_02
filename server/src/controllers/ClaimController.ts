@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { ClaimService } from '../services/ClaimService';
 import { AppError } from '../utils/AppError';
-import { PrismaClient, ClaimStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { ClaimStatus } from '@prisma/client';
+import prisma from '../lib/prisma';
 
 // Helper to get userId from clerkId (should be safe by now)
 const getUserId = async (req: Request) => {

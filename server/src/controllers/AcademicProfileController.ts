@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AcademicProfileService } from '../services/AcademicProfileService';
 import { AppError } from '../utils/AppError';
+import prisma from '../lib/prisma';
 
 export class AcademicProfileController {
   /**
@@ -126,9 +127,6 @@ export class AcademicProfileController {
       }
 
       // Get user's internal ID
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-      
       const user = await prisma.user.findUnique({
         where: { clerkId },
         select: { id: true },

@@ -1,9 +1,7 @@
 // server/src/controllers/groupController.ts
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // GET / - Get all groups with member count
 export const getGroups = async (req: Request, res: Response, next: NextFunction) => {

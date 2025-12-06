@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { FinancialProfileService } from '../services/FinancialProfileService';
+import prisma from '../lib/prisma';
 
 /**
  * Get the financial profile for the authenticated user
@@ -60,9 +61,6 @@ export const initializeFinancialProfile = async (req: Request, res: Response, ne
     }
 
     // Get internal user ID
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-    
     const user = await prisma.user.findUnique({
       where: { clerkId },
       select: { id: true },
@@ -93,9 +91,6 @@ export const deleteFinancialProfile = async (req: Request, res: Response, next: 
     }
 
     // Get internal user ID
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-    
     const user = await prisma.user.findUnique({
       where: { clerkId },
       select: { id: true },

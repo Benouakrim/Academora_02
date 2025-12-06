@@ -32,6 +32,7 @@ import onboardingRoutes from './routes/onboarding';
 import academicProfileRoutes from './routes/academicProfile';
 import financialProfileRoutes from './routes/financialProfile';
 import profilesRoutes from './routes/profiles';
+import predictionRoutes from './routes/predictionRoutes';
 
 // Public routes (NO AUTH)
 router.use('/profiles', profilesRoutes);
@@ -64,6 +65,7 @@ router.use('/billing', billingRoutes);
 router.use('/onboarding', onboardingRoutes);
 router.use('/academic-profile', academicProfileRoutes);
 router.use('/financial-profile', financialProfileRoutes);
+router.use('/predictions', predictionRoutes);
 // router.use('/users', userRoutes);
 // router.use('/saved', savedUniversityRoutes);
 // router.use('/comparisons', comparisonRoutes);

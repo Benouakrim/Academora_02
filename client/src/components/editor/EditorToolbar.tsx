@@ -65,6 +65,7 @@ export default function EditorToolbar({ editor }: Props) {
         {/* History */}
         <ButtonGroup>
           <Button 
+            type="button"
             variant="ghost" 
             size="sm" 
             className="h-8 w-8 p-0" 
@@ -75,6 +76,7 @@ export default function EditorToolbar({ editor }: Props) {
             <Undo className="h-4 w-4" />
           </Button>
           <Button 
+            type="button"
             variant="ghost" 
             size="sm" 
             className="h-8 w-8 p-0" 
@@ -315,6 +317,7 @@ export default function EditorToolbar({ editor }: Props) {
         {/* Inserts */}
         <ButtonGroup>
           <Button 
+            type="button"
             variant="ghost" 
             size="sm" 
             className={cn("h-8 w-8 p-0", editor.isActive('link') && "bg-accent")} 
@@ -324,6 +327,7 @@ export default function EditorToolbar({ editor }: Props) {
             <LinkIcon className="h-4 w-4" />
           </Button>
           <Button 
+            type="button"
             variant="ghost" 
             size="sm" 
             className="h-8 w-8 p-0" 
@@ -333,6 +337,7 @@ export default function EditorToolbar({ editor }: Props) {
             <ImageIcon className="h-4 w-4" />
           </Button>
           <Button 
+            type="button"
             variant="ghost" 
             size="sm" 
             className="h-8 w-8 p-0" 
@@ -342,6 +347,7 @@ export default function EditorToolbar({ editor }: Props) {
             <Video className="h-4 w-4" />
           </Button>
           <Button 
+            type="button"
             variant="ghost" 
             size="sm" 
             className="h-8 w-8 p-0" 
@@ -351,6 +357,7 @@ export default function EditorToolbar({ editor }: Props) {
             <Table className="h-4 w-4" />
           </Button>
           <Button 
+            type="button"
             variant="ghost" 
             size="sm" 
             className="h-8 w-8 p-0" 
@@ -367,6 +374,7 @@ export default function EditorToolbar({ editor }: Props) {
             <Separator orientation="vertical" className="h-8" />
             <ButtonGroup className="animate-fadeIn">
               <Button 
+                type="button"
                 variant="ghost" 
                 size="sm" 
                 className="h-8 text-xs px-2" 
@@ -376,6 +384,7 @@ export default function EditorToolbar({ editor }: Props) {
                 + Col
               </Button>
               <Button 
+                type="button"
                 variant="ghost" 
                 size="sm" 
                 className="h-8 text-xs px-2" 
@@ -385,6 +394,7 @@ export default function EditorToolbar({ editor }: Props) {
                 - Col
               </Button>
               <Button 
+                type="button"
                 variant="ghost" 
                 size="sm" 
                 className="h-8 text-xs px-2" 
@@ -394,6 +404,7 @@ export default function EditorToolbar({ editor }: Props) {
                 + Row
               </Button>
               <Button 
+                type="button"
                 variant="ghost" 
                 size="sm" 
                 className="h-8 text-xs px-2" 
@@ -403,6 +414,7 @@ export default function EditorToolbar({ editor }: Props) {
                 - Row
               </Button>
               <Button 
+                type="button"
                 variant="destructive" 
                 size="sm" 
                 className="h-8 text-xs px-2" 

@@ -1,8 +1,7 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import { NotificationService } from './NotificationService';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export class BadgeService {
 

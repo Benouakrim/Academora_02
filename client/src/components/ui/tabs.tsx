@@ -46,6 +46,7 @@ export function TabsTrigger({ value, className, children }: { value: string; cla
   const isActive = ctx.value === value
   return (
     <button
+      type="button"
       role="tab"
       aria-selected={isActive}
       onClick={() => ctx.setValue(value)}

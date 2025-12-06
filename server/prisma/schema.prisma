@@ -6,7 +6,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // --- Enums ---
@@ -524,6 +523,7 @@ model Article {
   comments Comment[]
   likes    ArticleLike[]
   analytics ArticleAnalytics[]
+  predictions ArticlePrediction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -788,5 +788,23 @@ model ComparisonInsight {
   
   @@index([comparisonId])
   @@index([insightType])
+}
+
+// --- Article Prediction Storage ---
+model ArticlePrediction {
+  id         String   @id @default(uuid())
+  articleId  String
+  article    Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  inputHash  String   @unique // Unique per content hash to prevent duplicate predictions for same content
+  features   Json     // Extracted ArticleFeatures
+  result     Json     // PredictionResult
+  version    Int      @default(1) // Prediction model version
+
+  createdAt  DateTime @default(now())
+
+  @@index([articleId])
+  @@index([inputHash])
+  @@index([createdAt])
 }
 

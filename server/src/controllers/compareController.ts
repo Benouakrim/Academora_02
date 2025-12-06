@@ -1,13 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import { FinancialAidService } from '../services/FinancialAidService';
 import { ComparisonAnalysisService } from '../services/ComparisonAnalysisService';
 import { ComparativeInsightsService } from '../services/ComparativeInsightsService';
 import { ComparisonReportService } from '../services/ComparisonReportService';
 import { ComparisonService } from '../services/ComparisonService';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 /**
  * Bulk fetch university details by slugs for comparison

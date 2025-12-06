@@ -2,11 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import { UserService } from '../services/UserService';
 import { FinancialProfileService } from '../services/FinancialProfileService';
 import { SyncService } from '../services/SyncService';
-import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import { clerkClient } from '@clerk/express';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export const getProfile = async (req: Request, res: Response, next: NextFunction) => {
   try {

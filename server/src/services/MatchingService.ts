@@ -1,10 +1,9 @@
-import { PrismaClient, University } from '@prisma/client';
+import { University } from '@prisma/client';
 import { MatchRequest, DiscoveryCriteria, DiscoveryResponse } from '../validation/matchingSchemas';
 import { AcademicProfileService } from './AcademicProfileService';
 import { FinancialProfileService } from './FinancialProfileService';
 import { UserService } from './UserService';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 interface UniversityMatchResult {
   university: University;

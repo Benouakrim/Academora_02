@@ -1,8 +1,7 @@
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import * as cache from '../lib/cache';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export class UniversityService {
   // --- Read ---

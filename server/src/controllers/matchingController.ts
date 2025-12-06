@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { MatchingService } from '../services/MatchingService';
+import prisma from '../lib/prisma';
 
 export const calculateMatches = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -25,9 +26,6 @@ export const getRecommendations = async (req: Request, res: Response, next: Next
     }
 
     // Get internal user ID from clerkId
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-    
     const user = await prisma.user.findUnique({
       where: { clerkId },
       select: { id: true },

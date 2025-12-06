@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { AppError } from '../utils/AppError';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 /**
  * Service for managing referral codes and tracking referral relationships

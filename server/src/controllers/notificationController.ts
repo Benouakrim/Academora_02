@@ -1,10 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { NotificationService } from '../services/NotificationService';
-import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import { clerkClient } from '@clerk/express';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 /**
  * Get all notifications for the authenticated user

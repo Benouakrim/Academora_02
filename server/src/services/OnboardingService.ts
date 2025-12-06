@@ -1,11 +1,9 @@
-import { PrismaClient } from '@prisma/client';
 import { clerkClient } from '@clerk/express';
 import { AppError } from '../utils/AppError';
 import { SyncService } from './SyncService';
 import { FinancialProfileService } from './FinancialProfileService';
 import type { OnboardingPayload, IndividualAnswers, OrganizationAnswers } from '../validation/onboardingSchemas';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export class OnboardingService {
   /**

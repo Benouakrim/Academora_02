@@ -15,7 +15,10 @@ import {
   type OnboardingFormValues,
 } from '@/lib/validations/onboarding'
 import { AccountTypeStep } from './onboarding/AccountTypeStep'
-import { PersonaRoleStep } from './onboarding/PersonaRoleStep'
+import { PersonaRoleOnlyStep } from './onboarding/PersonaRoleOnlyStep'
+import { FocusGoalStep } from './onboarding/FocusGoalStep'
+import { AcademicInterestsStep } from './onboarding/AcademicInterestsStep'
+import { LocationAdditionalStep } from './onboarding/LocationAdditionalStep'
 import { OrganizationStep } from './onboarding/OrganizationStep'
 import { SuccessStep } from './onboarding/SuccessStep'
 import { toast } from 'sonner'
@@ -104,8 +107,8 @@ export default function OnboardingPage() {
       // Step 0: Account Type, Step 1: Organization Details, Step 2: Success
       useOnboardingStore.setState({ totalSteps: 3 })
     } else {
-      // Step 0: Account Type, Step 1: Individual Details, Step 2: Success
-      useOnboardingStore.setState({ totalSteps: 3 })
+      // Step 0: Account Type, Steps 1-4: Individual Details, Step 5: Success
+      useOnboardingStore.setState({ totalSteps: 6 })
     }
   }, [accountType])
 
@@ -135,12 +138,16 @@ export default function OnboardingPage() {
 
     if (currentStep === 0) {
       fieldsToValidate = ['accountType']
-    } else if (currentStep === 1) {
-      if (accountType === 'INDIVIDUAL') {
-        fieldsToValidate = ['personaRole', 'focusArea', 'primaryGoal']
-      } else if (accountType === 'ORGANIZATION') {
-        fieldsToValidate = ['organizationName']
+    } else if (accountType === 'INDIVIDUAL') {
+      // Individual flow validation
+      if (currentStep === 1) {
+        fieldsToValidate = ['personaRole']
+      } else if (currentStep === 2) {
+        fieldsToValidate = ['focusArea', 'primaryGoal']
       }
+      // Steps 3 and 4 are optional (academic interests, location, etc.)
+    } else if (accountType === 'ORGANIZATION' && currentStep === 1) {
+      fieldsToValidate = ['organizationName']
     }
 
     const isValid = await form.trigger(fieldsToValidate)
@@ -149,8 +156,10 @@ export default function OnboardingPage() {
       return
     }
 
-    // If step 1 (data collection), submit and move to success
-    if (currentStep === 1) {
+    // If last data collection step, submit and move to success
+    const isLastDataStep = accountType === 'INDIVIDUAL' ? currentStep === 4 : currentStep === 1
+    
+    if (isLastDataStep) {
       await handleSubmit()
     } else {
       nextStep()
@@ -203,17 +212,31 @@ export default function OnboardingPage() {
       return <AccountTypeStep form={form} />
     }
     
-    if (currentStep === 1) {
-      if (accountType === 'INDIVIDUAL') {
-        return <PersonaRoleStep form={form} />
-      } else if (accountType === 'ORGANIZATION') {
+    if (accountType === 'INDIVIDUAL') {
+      if (currentStep === 1) {
+        return <PersonaRoleOnlyStep form={form} />
+      }
+      if (currentStep === 2) {
+        return <FocusGoalStep form={form} />
+      }
+      if (currentStep === 3) {
+        return <AcademicInterestsStep form={form} />
+      }
+      if (currentStep === 4) {
+        return <LocationAdditionalStep form={form} />
+      }
+      if (currentStep === 5) {
+        const isSubmitting = completeOnboardingMutation.isPending || updateOnboardingMutation.isPending
+        return <SuccessStep form={form} isSubmitting={isSubmitting} />
+      }
+    } else if (accountType === 'ORGANIZATION') {
+      if (currentStep === 1) {
         return <OrganizationStep form={form} />
       }
-    }
-
-    if (currentStep === 2) {
-      const isSubmitting = completeOnboardingMutation.isPending || updateOnboardingMutation.isPending
-      return <SuccessStep form={form} isSubmitting={isSubmitting} />
+      if (currentStep === 2) {
+        const isSubmitting = completeOnboardingMutation.isPending || updateOnboardingMutation.isPending
+        return <SuccessStep form={form} isSubmitting={isSubmitting} />
+      }
     }
 
     return null
@@ -257,7 +280,7 @@ export default function OnboardingPage() {
             {renderStep()}
 
             {/* Navigation Buttons */}
-            {currentStep < 2 && (
+            {!((accountType === 'INDIVIDUAL' && currentStep === 5) || (accountType === 'ORGANIZATION' && currentStep === 2)) && (
               <div className="flex justify-between items-center mt-12 pt-8 border-t">
                 <Button
                   type="button"
@@ -300,7 +323,7 @@ export default function OnboardingPage() {
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Saving...
                       </>
-                    ) : currentStep === 1 ? (
+                    ) : ((accountType === 'INDIVIDUAL' && currentStep === 4) || (accountType === 'ORGANIZATION' && currentStep === 1)) ? (
                       profile?.onboarded ? 'Update Profile' : 'Complete Setup'
                     ) : (
                       <>

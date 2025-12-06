@@ -1,9 +1,7 @@
 // server/src/controllers/microContentController.ts
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // GET /university/:universityId - Get all micro-content for a specific university
 export const getByUniversity = async (req: Request, res: Response, next: NextFunction) => {

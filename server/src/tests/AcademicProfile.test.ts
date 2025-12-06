@@ -165,11 +165,12 @@ describe('AcademicProfile - Data Integrity Tests', () => {
         testScores,
       });
 
-      expect(result.testScores).toEqual(testScores);
-      expect(result.testScores.SAT.total).toBe(1450);
-      expect(result.testScores.ACT.composite).toBe(32);
-      expect(result.testScores.AP).toHaveLength(2);
-      expect(result.testScores.AP[0].score).toBe(5);
+      const scores = result.testScores as any;
+      expect(scores).toEqual(testScores);
+      expect(scores?.SAT?.total).toBe(1450);
+      expect(scores?.ACT?.composite).toBe(32);
+      expect(scores?.AP).toHaveLength(2);
+      expect(scores?.AP?.[0]?.score).toBe(5);
     });
 
     it('should handle complex academicHonors JSON structure', async () => {
@@ -222,10 +223,11 @@ describe('AcademicProfile - Data Integrity Tests', () => {
         academicHonors,
       });
 
-      expect(result.academicHonors).toHaveLength(3);
-      expect(result.academicHonors[0].name).toBe('National Merit Scholar');
-      expect(result.academicHonors[1].level).toBe('International');
-      expect(result.academicHonors[2].year).toBe(2024);
+      const honors = (result.academicHonors as any[]) ?? [];
+      expect(honors).toHaveLength(3);
+      expect(honors[0]?.name).toBe('National Merit Scholar');
+      expect(honors[1]?.level).toBe('International');
+      expect(honors[2]?.year).toBe(2024);
     });
 
     it('should handle empty JSON structures gracefully', async () => {
@@ -532,7 +534,7 @@ describe('AcademicProfile - Authorization', () => {
     const result = await AcademicProfileService.getByClerkId('clerk-123');
 
     expect(result).toEqual(mockProfile);
-    expect(result.userId).toBe('user-123');
+    expect(result?.userId).toBe('user-123');
   });
 });
 

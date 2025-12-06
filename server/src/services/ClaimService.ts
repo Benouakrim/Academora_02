@@ -1,8 +1,7 @@
-import { PrismaClient, ClaimStatus } from '@prisma/client';
+import { ClaimStatus } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import { CreateClaimData } from '../validation/claimSchemas';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 /**
  * Service for managing University and UniversityGroup claims

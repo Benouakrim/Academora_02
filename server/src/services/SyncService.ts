@@ -1,8 +1,7 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { clerkClient } from '@clerk/express';
 import { AppError } from '../utils/AppError';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export class SyncService {
 

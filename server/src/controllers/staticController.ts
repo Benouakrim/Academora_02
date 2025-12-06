@@ -1,9 +1,7 @@
 // server/src/controllers/staticController.ts
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { AppError } from '../utils/AppError';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 export const getPages = async (req: Request, res: Response, next: NextFunction) => {
   try {

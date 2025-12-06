@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useUserStore } from '@/store/useUserStore'
+import { useProfileCompleteness } from '@/hooks/useProfileCompleteness'
 import { BookOpen, Target, TrendingUp } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 
 function ProgressBar({ value, colorClass = "bg-primary" }: { value: number, colorClass?: string }) {
   return (
@@ -15,16 +17,10 @@ function ProgressBar({ value, colorClass = "bg-primary" }: { value: number, colo
 
 export default function StatsCards() {
   const { profile } = useUserStore()
+  const { data: profileCompleteness, isLoading: loadingProfile } = useProfileCompleteness()
 
   const savedCount = Array.isArray((profile as any)?.savedUniversities) ? (profile as any).savedUniversities.length : 0
-  
-  // Calculate profile completeness
-  const fields = ['gpa', 'satScore', 'maxBudget', 'preferredMajor', 'careerGoals', 'hobbies']
-  const filled = fields.filter(f => {
-    const val = (profile as any)?.[f]
-    return Array.isArray(val) ? val.length > 0 : !!val
-  }).length
-  const completionPct = Math.round((filled / fields.length) * 100)
+  const completionPct = profileCompleteness?.completionPercentage ?? 0
 
   // Estimate aid (mock calculation based on saved items for visual)
   const avgAid = (() => {
@@ -33,6 +29,16 @@ export default function StatsCards() {
     if (!withAid.length) return null
     return Math.round(withAid.reduce((a, b) => a + b, 0) / withAid.length)
   })()
+
+  if (loadingProfile) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Skeleton className="h-40 rounded-lg" />
+        <Skeleton className="h-40 rounded-lg" />
+        <Skeleton className="h-40 rounded-lg" />
+      </div>
+    )
+  }
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -45,7 +51,7 @@ export default function StatsCards() {
         <CardContent>
           <div className="text-2xl font-bold">{savedCount}</div>
           <p className="text-xs text-muted-foreground mt-1">
-            {savedCount === 0 ? "Start exploring to add schools" : "Schools in your list"}
+            {savedCount === 0 ? "Start exploring to add schools" : `${savedCount} school${savedCount !== 1 ? 's' : ''} saved`}
           </p>
         </CardContent>
       </Card>
@@ -60,7 +66,9 @@ export default function StatsCards() {
           <div className="text-2xl font-bold mb-2">{completionPct}%</div>
           <ProgressBar value={completionPct} colorClass="bg-secondary" />
           <p className="text-xs text-muted-foreground mt-2">
-            {completionPct < 100 ? "Complete your profile for better matches" : "All set!"}
+            {completionPct < 100 
+              ? `${profileCompleteness?.missingFields?.join(', ') || 'Missing fields'}`
+              : "Profile complete!"}
           </p>
         </CardContent>
       </Card>
@@ -76,7 +84,7 @@ export default function StatsCards() {
             {avgAid ? `$${(avgAid / 1000).toFixed(1)}k` : '—'}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Avg. grant from your saved schools
+            {avgAid ? "Avg. grant from your saved schools" : "Save schools to see aid estimates"}
           </p>
         </CardContent>
       </Card>

@@ -1,6 +1,29 @@
 import axios from 'axios'
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+const resolveBaseURL = () => {
+  // 1) Explicit override from env
+  const envUrl = import.meta.env.VITE_API_URL
+  if (envUrl) return envUrl
+
+  // 2) If we're running in the browser, prefer same-origin in production
+  if (typeof window !== 'undefined') {
+    const origin = window.location.origin
+    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1')
+
+    if (!isLocal) {
+      // Assume the API is reverse-proxied at /api in prod
+      return `${origin}/api`
+    }
+
+    // Local development fallback
+    return 'http://localhost:3001/api'
+  }
+
+  // SSR/unknown context fallback
+  return 'http://localhost:3001/api'
+}
+
+const baseURL = resolveBaseURL()
 
 export const api = axios.create({
   baseURL,

@@ -1,15 +1,14 @@
 import Stripe from 'stripe';
-import { PrismaClient, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { AppError } from '../utils/AppError';
 import { SyncService } from './SyncService'; // For syncing roles back to Clerk
+import prisma from '../lib/prisma';
 
 
 // Initialize Stripe with secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-11-17.clover', // Use a stable API version
 });
-
-const prisma = new PrismaClient();
 
 export class PaymentService {
 

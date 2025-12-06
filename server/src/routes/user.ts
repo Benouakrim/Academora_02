@@ -5,9 +5,7 @@ import * as controller from '../controllers/userController';
 import { updateProfileSchema, toggleSavedSchema } from '../validation/userSchemas';
 import { BadgeService } from '../services/BadgeService';
 import { PublicProfileService } from '../services/PublicProfileService';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 const router = Router();
 
 // Protect all user operations

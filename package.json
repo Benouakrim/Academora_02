@@ -9,7 +9,7 @@
     "server:start": "npm start --prefix C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/server",
     "client:build": "npm run build --prefix C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/client",
     "client:start": "npm run preview --prefix C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/client",
-    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$s = Start-Job { npm run dev --prefix 'C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/server' }; $c = Start-Job { npm run dev --prefix 'C:/Users/ayper/Desktop/Projects_Ayoub/Coding/Academora-V0.1/client' }; Receive-Job -Wait $s,$c\"",
+    "dev": "concurrently -k -n server,client,ngrok -c yellow,cyan,magenta \"npm run dev --prefix ./server\" \"npm run dev --prefix ./client\" \"ngrok http 3001 --log=stdout\"",
     "ngrok": "ngrok http 3001",
     "test:server": "vitest run --config ./vitest.config.ts"
   },
@@ -20,6 +20,7 @@
   "devDependencies": {
     "@types/multer": "^2.0.0",
     "@vitest/coverage-v8": "^4.0.15",
+    "concurrently": "^9.2.1",
     "vitest": "^4.0.15"
   }
 }

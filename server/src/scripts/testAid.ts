@@ -29,7 +29,7 @@ async function main() {
       familyIncome: 85000,
       gpa: 3.7,
       satScore: 1350,
-      inState: true,
+      residency: 'in-state',
     });
 
     console.log(JSON.stringify(result, null, 2));

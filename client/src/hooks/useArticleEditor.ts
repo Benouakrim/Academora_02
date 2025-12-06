@@ -69,116 +69,133 @@ export function useArticleEditor({
   })
 
   // Deduplicate extensions using useMemo - prevents recreation on every render
-  const extensions = useMemo(() => [
-    StarterKit.configure({
-      heading: { 
-        levels: [1, 2, 3, 4, 5, 6],
-        HTMLAttributes: {
-          class: 'scroll-mt-20' // For smooth anchor scrolling
+  const extensions = useMemo(() => {
+    const baseExtensions = [
+      StarterKit.configure({
+        heading: { 
+          levels: [1, 2, 3, 4, 5, 6],
+          HTMLAttributes: {
+            class: 'scroll-mt-20' // For smooth anchor scrolling
+          }
+        },
+        codeBlock: false, // Using CodeBlockLowlight instead
+        paragraph: {
+          HTMLAttributes: {
+            class: 'text-base leading-7'
+          }
         }
-      },
-      codeBlock: false, // Using CodeBlockLowlight instead
-      paragraph: {
+      }),
+      
+      Placeholder.configure({
+        placeholder,
+        emptyEditorClass: 'is-editor-empty before:content-[attr(data-placeholder)] before:text-muted-foreground before:float-left before:pointer-events-none before:h-0'
+      }),
+      
+      Image.configure({
         HTMLAttributes: {
-          class: 'text-base leading-7'
+          class: 'rounded-lg border shadow-sm max-w-full transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer my-4',
+        },
+        inline: false,
+        allowBase64: true,
+      }),
+      
+      Link.configure({
+        openOnClick: false,
+        HTMLAttributes: {
+          class: 'text-primary underline underline-offset-2 decoration-2 hover:text-primary/80 transition-colors cursor-pointer',
+          rel: 'noopener noreferrer',
+          target: '_blank',
+        },
+        validate: href => /^https?:\/\//.test(href),
+      }),
+      
+      TextAlign.configure({
+        types: ['heading', 'paragraph'],
+        alignments: ['left', 'center', 'right', 'justify'],
+      }),
+      
+      Highlight.configure({
+        HTMLAttributes: {
+          class: 'bg-yellow-200 dark:bg-yellow-900/40 rounded-sm px-1 py-0.5',
+        },
+        multicolor: true,
+      }),
+      
+      Underline,
+      TextStyle,
+      Color,
+      FontSize,
+      Subscript,
+      Superscript,
+      
+      // Enhanced code block with syntax highlighting
+      CodeBlockLowlight.configure({
+        lowlight,
+        HTMLAttributes: {
+          class: 'bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-950 dark:to-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-6 font-mono text-sm shadow-xl my-6 overflow-x-auto',
+        },
+        defaultLanguage: 'javascript',
+      }),
+      
+      // YouTube embeds
+      Youtube.configure({
+        width: 640,
+        height: 360,
+        HTMLAttributes: {
+          class: 'rounded-xl overflow-hidden shadow-lg my-6 mx-auto',
+        },
+        inline: false,
+        controls: true,
+        nocookie: true, // Privacy-enhanced mode
+      }),
+      
+      // Table support with resizing
+      Table.configure({
+        resizable: true,
+        HTMLAttributes: {
+          class: 'border-collapse table-auto w-full border border-border rounded-lg overflow-hidden my-6 shadow-sm',
+        },
+      }),
+      
+      TableRow.configure({
+        HTMLAttributes: {
+          class: 'border-b border-border even:bg-muted/30 transition-colors',
+        },
+      }),
+      
+      TableHeader.configure({
+        HTMLAttributes: {
+          class: 'border border-border bg-muted/50 font-semibold p-3 text-left',
+        },
+      }),
+      
+      TableCell.configure({
+        HTMLAttributes: {
+          class: 'border border-border p-3',
+        },
+      }),
+      
+      // Character count for SEO and readability insights
+      CharacterCount.configure({
+        limit: null, // No hard limit, just counting
+      }),
+    ]
+
+    // Guard against duplicate extension registrations (e.g., link/underline)
+    const seen = new Set<string>()
+    return baseExtensions.filter((extension) => {
+      const name = (extension as any)?.name ?? (extension as any)?.config?.name
+      if (!name) return true
+      if (seen.has(name)) {
+        if (import.meta.env.DEV) {
+          console.warn(`[Editor] Dropping duplicate extension: ${name}`)
         }
+        return false
       }
-    }),
-    
-    Placeholder.configure({
-      placeholder,
-      emptyEditorClass: 'is-editor-empty before:content-[attr(data-placeholder)] before:text-muted-foreground before:float-left before:pointer-events-none before:h-0'
-    }),
-    
-    Image.configure({
-      HTMLAttributes: {
-        class: 'rounded-lg border shadow-sm max-w-full transition-all duration-300 hover:shadow-lg hover:scale-[1.02] cursor-pointer my-4',
-      },
-      inline: false,
-      allowBase64: true,
-    }),
-    
-    Link.configure({
-      openOnClick: false,
-      HTMLAttributes: {
-        class: 'text-primary underline underline-offset-2 decoration-2 hover:text-primary/80 transition-colors cursor-pointer',
-        rel: 'noopener noreferrer',
-        target: '_blank',
-      },
-      validate: href => /^https?:\/\//.test(href),
-    }),
-    
-    TextAlign.configure({
-      types: ['heading', 'paragraph'],
-      alignments: ['left', 'center', 'right', 'justify'],
-    }),
-    
-    Highlight.configure({
-      HTMLAttributes: {
-        class: 'bg-yellow-200 dark:bg-yellow-900/40 rounded-sm px-1 py-0.5',
-      },
-      multicolor: true,
-    }),
-    
-    Underline,
-    TextStyle,
-    Color,
-    FontSize,
-    Subscript,
-    Superscript,
-    
-    // Enhanced code block with syntax highlighting
-    CodeBlockLowlight.configure({
-      lowlight,
-      HTMLAttributes: {
-        class: 'bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-950 dark:to-slate-900 border border-slate-700 dark:border-slate-800 rounded-xl p-6 font-mono text-sm shadow-xl my-6 overflow-x-auto',
-      },
-      defaultLanguage: 'javascript',
-    }),
-    
-    // YouTube embeds
-    Youtube.configure({
-      width: 640,
-      height: 360,
-      HTMLAttributes: {
-        class: 'rounded-xl overflow-hidden shadow-lg my-6 mx-auto',
-      },
-      inline: false,
-      controls: true,
-      nocookie: true, // Privacy-enhanced mode
-    }),
-    
-    // Table support with resizing
-    Table.configure({
-      resizable: true,
-      HTMLAttributes: {
-        class: 'border-collapse table-auto w-full border border-border rounded-lg overflow-hidden my-6 shadow-sm',
-      },
-    }),
-    
-    TableRow.configure({
-      HTMLAttributes: {
-        class: 'border-b border-border even:bg-muted/30 transition-colors',
-      },
-    }),
-    
-    TableHeader.configure({
-      HTMLAttributes: {
-        class: 'border border-border bg-muted/50 font-semibold p-3 text-left',
-      },
-    }),
-    
-    TableCell.configure({
-      HTMLAttributes: {
-        class: 'border border-border p-3',
-      },
-    }),
-    
-    // Character count for SEO and readability insights
-    CharacterCount.configure({
-      limit: null, // No hard limit, just counting
-    }),
-  ], [placeholder])
+      seen.add(name)
+      return true
+    })
+  }, [placeholder])
 
   // Initialize editor with deduped extensions
   const editor = useEditor({

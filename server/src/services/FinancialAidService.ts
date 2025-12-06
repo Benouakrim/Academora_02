@@ -1,9 +1,8 @@
-import { PrismaClient } from '@prisma/client';
 import { create, all } from 'mathjs';
 import { AppError } from '../utils/AppError';
 import { PredictRequest } from '../validation/financialAidSchemas';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 const math = create(all, { number: 'BigNumber', precision: 64 });
 
 export class FinancialAidService {

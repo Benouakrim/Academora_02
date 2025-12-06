@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient, Prisma, UserRole, ArticleStatus } from '@prisma/client';
+import { Prisma, UserRole, ArticleStatus } from '@prisma/client';
 import { AppError } from '../utils/AppError';
+import prisma from '../lib/prisma';
 
-const prisma = new PrismaClient();
 const MAX_PENDING_ARTICLES = 3;
 
 // --- PUBLIC READ OPERATIONS ---

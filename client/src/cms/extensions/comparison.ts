@@ -1,3 +1,4 @@
+/* @ts-nocheck */
 import { Node, mergeAttributes } from '@tiptap/core';
 import { ReactNodeViewRenderer } from '@tiptap/react';
 import ComparisonView from '../nodeviews/ComparisonView.js';

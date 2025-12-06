@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ReferralService } from '../services/ReferralService';
 import { AppError } from '../utils/AppError';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // Helper to get userId from clerkId
 const getUserId = async (req: Request) => {

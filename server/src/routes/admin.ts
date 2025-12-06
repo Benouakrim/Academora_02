@@ -1,15 +1,14 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { getStats } from '../controllers/adminController'
 import { requireAdmin } from '../middleware/requireAdmin'
-import { PrismaClient } from '@prisma/client'
 import { validate } from '../middleware/validate'
 import { reviewClaimSchema } from '../validation/claimSchemas'
 import * as ClaimController from '../controllers/ClaimController'
 import { SyncService } from '../services/SyncService'
 import { Cache } from '../lib/cache'
+import prisma from '../lib/prisma'
 
 const router = Router()
-const prisma = new PrismaClient()
 
 router.get('/stats', requireAdmin, getStats)
 

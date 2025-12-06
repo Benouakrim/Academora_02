@@ -11,6 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import RichTextEditor from '@/components/editor/RichTextEditor'
 import ImageUpload from '@/components/common/ImageUpload'
+import PerformancePanel from '@/components/editor/prediction/PerformancePanel'
+import { useArticlePrediction } from '@/hooks/useArticlePrediction'
 import { api } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 
@@ -36,6 +38,9 @@ export default function ArticleEditorPage() {
   const queryClient = useQueryClient()
   const [isAutoSlugging, setIsAutoSlugging] = useState(true)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
+  const [prediction, setPrediction] = useState<any>(null)
+
+  const predictionMutation = useArticlePrediction()
 
   // Fetch Taxonomies
   const { data: taxonomies } = useQuery({
@@ -266,6 +271,28 @@ export default function ArticleEditorPage() {
 
         {/* Sidebar Settings */}
         <div className="space-y-6">
+          {/* Performance Panel */}
+          <PerformancePanel 
+            prediction={prediction}
+            onAnalyze={() => {
+              const content = form.watch('content')
+              const title = form.watch('title')
+              const tags = form.watch('focusKeyword')?.split(',').map(t => t.trim()).filter(Boolean) || []
+              
+              predictionMutation.mutate({
+                content: content || '',
+                title,
+                tags,
+                category: form.watch('categoryId'),
+                articleId: id
+              }, {
+                onSuccess: (res: any) => {
+                  setPrediction(res.data)
+                }
+              })
+            }}
+          />
+
           {/* Featured Image */}
           <div className="space-y-3">
             <label className="text-sm font-medium flex items-center gap-2">

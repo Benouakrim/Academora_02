@@ -10,8 +10,14 @@ import './styles/globals.css'
 import './styles/article-content.css'
 import './i18n/i18n.ts'
 
-// Environment check
-const clerkPk = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+// Environment-aware Clerk publishable key selection
+const clerkPk = import.meta.env.PROD
+  ? import.meta.env.VITE_CLERK_PUBLISHABLE_KEY_PROD ?? import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+  : import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+
+if (import.meta.env.PROD && clerkPk?.startsWith('pk_test_')) {
+  console.warn('[Clerk] A test (pk_test_) key is being used in production. Replace with pk_live_ to remove development limits.')
+}
 
 // Production-ready Query Client
 const queryClient = new QueryClient({

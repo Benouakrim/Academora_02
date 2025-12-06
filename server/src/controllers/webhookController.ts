@@ -1,13 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { Webhook } from 'svix';
-import { PrismaClient, UserRole } from '@prisma/client';
+import { UserRole } from '@prisma/client';
 import { clerkClient } from '@clerk/express';
 import { AppError } from '../utils/AppError';
 import { EmailService } from '../services/EmailService';
 import { SyncService } from '../services/SyncService';
 import { BadgeService } from '../services/BadgeService';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma';
 
 // Clerk webhook handler
 export const handleClerkWebhook = async (req: Request, res: Response, next: NextFunction) => {

@@ -1,0 +1,28 @@
+{
+  "name": "@academora/shared",
+  "version": "1.0.0",
+  "description": "Shared types and schemas for Academora monorepo",
+  "main": "index.ts",
+  "types": "index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./types": "./types/index.ts",
+    "./schemas": "./schemas/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "academora",
+    "shared",
+    "types",
+    "schemas"
+  ],
+  "license": "MIT"
+}

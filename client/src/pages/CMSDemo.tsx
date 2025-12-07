@@ -1,38 +1,78 @@
-import React, { useState } from 'react';
-import TiptapEditor from '../cms/TiptapEditor';
-import { convertTiptapJSONToStaticHTML } from '../cms/convertToHTML';
-import { hydrateInteractiveBlocks } from '../cms/hydrateBlocks';
-import { Eye, Code, Sparkles } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Eye, Code, Sparkles, Save } from 'lucide-react';
+import RichTextEditor from '@/components/editor/RichTextEditor';
+import { convertTiptapJSONToStaticHTML, hydrateInteractiveBlocks } from '@/cms';
+import type { TiptapDocument } from '@/cms/types/BlockTypes';
+import { Button } from '@/components/ui/button';
+
+const DEFAULT_DOC: TiptapDocument = {
+  type: 'doc',
+  content: [
+    {
+      type: 'heading',
+      attrs: { level: 1 },
+      content: [{ type: 'text', text: 'Academora CMS Demo' }],
+    },
+    {
+      type: 'paragraph',
+      content: [
+        {
+          type: 'text',
+          text: 'Type "/" or click "Add block" to insert interactive widgets like quizzes, checklists, and calculators.',
+        },
+      ],
+    },
+    {
+      type: 'checklist',
+      attrs: {
+        title: 'Kick-off checklist',
+        allowUserEdit: true,
+        items: [
+          { id: '1', text: 'Brainstorm outline', checked: false },
+          { id: '2', text: 'Add interactive blocks', checked: false },
+          { id: '3', text: 'Publish & hydrate', checked: false },
+        ],
+      },
+    },
+    {
+      type: 'quiz',
+      attrs: {
+        question: 'Which block helps with comparisons?',
+        options: [
+          { id: 'a', text: 'Tabs', isCorrect: false },
+          { id: 'b', text: 'Comparison table', isCorrect: true },
+          { id: 'c', text: 'Checklist', isCorrect: false },
+        ],
+        showExplanation: true,
+        explanation: 'Use the comparison block to contrast programs, pricing, or features.',
+      },
+    },
+  ],
+};
 
 const CMSDemo: React.FC = () => {
-  const [editorContent, setEditorContent] = useState<any>(null);
+  const initialHTML = useMemo(() => convertTiptapJSONToStaticHTML(DEFAULT_DOC), []);
+  const [editorContent, setEditorContent] = useState<string>(initialHTML);
   const [viewMode, setViewMode] = useState<'editor' | 'preview' | 'html'>('editor');
-  const [staticHTML, setStaticHTML] = useState<string>('');
+  const [staticHTML, setStaticHTML] = useState<string>(initialHTML);
+  const previewRef = useRef<HTMLDivElement | null>(null);
 
-  const handleSave = (content: any) => {
-    setEditorContent(content);
-    const html = convertTiptapJSONToStaticHTML(content);
-    setStaticHTML(html);
-    alert('Content saved! Check the preview tab to see the result.');
-  };
-
-  const handlePreview = (content: any) => {
-    setEditorContent(content);
-    const html = convertTiptapJSONToStaticHTML(content);
-    setStaticHTML(html);
+  const saveSnapshot = (nextHTML: string) => {
+    setStaticHTML(nextHTML);
     setViewMode('preview');
   };
 
   // Hydrate blocks when switching to preview
-  React.useEffect(() => {
-    if (viewMode === 'preview' && staticHTML) {
-      const container = document.getElementById('preview-container');
-      if (container) {
-        setTimeout(() => {
-          hydrateInteractiveBlocks(container);
-        }, 100);
+  useEffect(() => {
+    if (viewMode !== 'preview' || !staticHTML || !previewRef.current) return;
+    const id = window.setTimeout(() => {
+      try {
+        hydrateInteractiveBlocks(previewRef.current as HTMLElement);
+      } catch (err) {
+        console.warn('Hydration failed in CMS demo preview', err);
       }
-    }
+    }, 50);
+    return () => window.clearTimeout(id);
   }, [viewMode, staticHTML]);
 
   return (
@@ -66,8 +106,8 @@ const CMSDemo: React.FC = () => {
               Editor
             </button>
             <button
-              onClick={() => setViewMode('preview')}
-              disabled={!staticHTML}
+              onClick={() => { setStaticHTML(editorContent); setViewMode('preview'); }}
+              disabled={!editorContent}
               className={`flex items-center gap-2 px-6 py-3 font-semibold transition-all ${
                 viewMode === 'preview'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
@@ -78,8 +118,8 @@ const CMSDemo: React.FC = () => {
               Preview (Hydrated)
             </button>
             <button
-              onClick={() => setViewMode('html')}
-              disabled={!staticHTML}
+              onClick={() => { setStaticHTML(editorContent); setViewMode('html'); }}
+              disabled={!editorContent}
               className={`flex items-center gap-2 px-6 py-3 font-semibold transition-all ${
                 viewMode === 'html'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
@@ -96,20 +136,30 @@ const CMSDemo: React.FC = () => {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         {viewMode === 'editor' && (
-          <div>
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h2 className="text-lg font-bold text-blue-900 mb-2">
-                📝 Getting Started
-              </h2>
+          <div className="space-y-4">
+            <div className="mb-2 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h2 className="text-lg font-bold text-blue-900 mb-2">📝 Getting Started</h2>
               <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Click the <strong>Add Block</strong> button to insert interactive widgets</li>
-                <li>• Type <code className="bg-blue-100 px-1 rounded">/</code> to quickly insert blocks</li>
-                <li>• Click on any block to edit its content</li>
-                <li>• Use the toolbar for text formatting</li>
-                <li>• Click <strong>Save</strong> to generate HTML, then view the <strong>Preview</strong> tab</li>
+                <li>• Use the <strong>Add block</strong> button or type <code className="bg-blue-100 px-1 rounded">/</code></li>
+                <li>• Interactive widgets now share the same engine as the admin/user editors</li>
+                <li>• Click <strong>Save snapshot</strong> to hydrate and preview your content</li>
               </ul>
             </div>
-            <TiptapEditor onSave={handleSave} onPreview={handlePreview} />
+            <RichTextEditor
+              content={editorContent}
+              onChange={setEditorContent}
+              placeholder="Start writing or insert interactive blocks..."
+              showStats
+              mode="admin"
+            />
+            <div className="flex gap-3">
+              <Button onClick={() => saveSnapshot(editorContent)} className="gap-2">
+                <Save className="h-4 w-4" /> Save snapshot & preview
+              </Button>
+              <Button variant="outline" onClick={() => { setStaticHTML(editorContent); setViewMode('html'); }} className="gap-2">
+                <Code className="h-4 w-4" /> View HTML
+              </Button>
+            </div>
           </div>
         )}
 
@@ -126,6 +176,7 @@ const CMSDemo: React.FC = () => {
             </div>
             <div
               id="preview-container"
+              ref={previewRef}
               className="prose prose-lg max-w-none bg-white p-8 rounded-lg shadow-lg"
               dangerouslySetInnerHTML={{ __html: staticHTML }}
             />

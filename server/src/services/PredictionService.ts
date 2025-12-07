@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import { extractFeatures } from '../lib/predictor/featureExtractor'
 import { INDUSTRY_BENCHMARKS } from '../lib/predictor/benchmarks'
+import benchmarkService from '../lib/predictor/benchmarkService'
 import {
   calculateAdRevenue,
   calculateConfidenceScore,
@@ -37,8 +38,12 @@ export class PredictionService {
     const seoScore = calculateSeoScore(features)
     const readTime = calculateReadTime(features.wordCount)
     const confidence = calculateConfidenceScore(features.wordCount)
-    const trafficForecast = calculateTrafficForecast(features, normalizedCategory, INDUSTRY_BENCHMARKS)
-    const benchmark = INDUSTRY_BENCHMARKS.categories[normalizedCategory] || INDUSTRY_BENCHMARKS.defaults
+    
+    // Load benchmarks from database with fallback to hardcoded defaults
+    const benchmarks = await benchmarkService.getBenchmarks()
+    
+    const trafficForecast = calculateTrafficForecast(features, normalizedCategory, benchmarks)
+    const benchmark = benchmarks.categories[normalizedCategory] || benchmarks.defaults
     const adRevenue = calculateAdRevenue(trafficForecast.med, benchmark.rpm)
     const conversionRate = calculateConversionEstimate(features)
     const recommendations = buildRecommendations(features, normalizedCategory)

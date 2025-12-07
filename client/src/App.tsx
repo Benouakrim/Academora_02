@@ -16,10 +16,10 @@ const SearchPage = lazy(() => import('@/pages/search/SearchPage'));
 const ComparePage = lazy(() => import('@/pages/compare/ComparePage'));
 const UniversityPage = lazy(() => import('@/pages/university/UniversityPage'));
 const UniversityClaimPage = lazy(() => import('@/pages/university/UniversityClaimPage'));
-const BlogPage = lazy(() => import('@/pages/blog/BlogPage'));
-const ArticlePage = lazy(() => import('@/pages/blog/ArticlePage'));
-const UserArticleEditor = lazy(() => import('@/pages/blog/UserArticleEditor'));
-const CMSDemo = lazy(() => import('@/pages/CMSDemo'));
+const BlogPage = lazy(() => import('@/pages/blog/BlogPage'))
+const ArticlePage = lazy(() => import('@/pages/blog/ArticlePage'))
+const ArticleEditorLayout = lazy(() => import('@/pages/articles/ArticleEditorLayout'))
+const CMSDemo = lazy(() => import('@/pages/CMSDemo'))
 const StaticContentPage = lazy(() => import('@/pages/StaticContentPage'));
 const PricingPage = lazy(() => import('@/pages/PricingPage'));
 
@@ -35,18 +35,18 @@ const SignIn = lazy(() => import('@clerk/clerk-react').then(m => ({ default: m.S
 const SignUp = lazy(() => import('@clerk/clerk-react').then(m => ({ default: m.SignUp })));
 
 // Admin
-const AdminDashboardPage = lazy(() => import('@/pages/admin/AdminDashboardPage'));
-const AdminUniversitiesPage = lazy(() => import('@/pages/admin/universities/AdminUniversitiesPage'));
-const UniversityEditorPage = lazy(() => import('@/pages/admin/universities/UniversityEditorPage'));
-const ArticlesList = lazy(() => import('@/pages/admin/ArticlesList'));
-const ArticleEditorPage = lazy(() => import('@/pages/admin/articles/ArticleEditorPage'));
-const ReviewModerationPage = lazy(() => import('@/pages/admin/reviews/ReviewModerationPage'));
+const AdminDashboardPage = lazy(() => import('@/pages/admin/AdminDashboardPage'))
+const AdminUniversitiesPage = lazy(() => import('@/pages/admin/universities/AdminUniversitiesPage'))
+const UniversityEditorPage = lazy(() => import('@/pages/admin/universities/UniversityEditorPage'))
+const ArticlesList = lazy(() => import('@/pages/admin/ArticlesList'))
+const ReviewModerationPage = lazy(() => import('@/pages/admin/reviews/ReviewModerationPage'))
 const AdminHealthPage = lazy(() => import('@/pages/admin/AdminHealthPage'));
 const AdminGroupsPage = lazy(() => import('@/pages/admin/AdminGroupsPage'));
 const GroupEditorPage = lazy(() => import('@/pages/admin/GroupEditorPage'));
 const AdminClaimsPage = lazy(() => import('@/pages/admin/AdminClaimsPage'));
 const AdminMicroContentPage = lazy(() => import('@/pages/admin/AdminMicroContentPage'));
 const AdminReferralsPage = lazy(() => import('@/pages/admin/AdminReferralsPage'));
+const AdminMediaPage = lazy(() => import('@/pages/admin/AdminMediaPage'));
 
 // User Pages
 const MyClaimsPage = lazy(() => import('@/pages/dashboard/MyClaimsPage'));
@@ -84,7 +84,8 @@ export default function App() {
             </Route>
 
             <Route element={<ProtectedRoute />}> 
-              <Route path="/blog/write" element={<UserArticleEditor />} />
+              <Route path="/articles/new" element={<ArticleEditorLayout />} />
+              <Route path="/articles/:id" element={<ArticleEditorLayout />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/dashboard" element={<DashboardLayout />}>
                 <Route index element={<DashboardPage />} />
@@ -109,12 +110,13 @@ export default function App() {
                 <Route path="groups/new" element={<GroupEditorPage />} />
                 <Route path="groups/:id" element={<GroupEditorPage />} />
                 <Route path="articles" element={<ArticlesList />} />
-                <Route path="articles/new" element={<ArticleEditorPage />} />
-                <Route path="articles/edit/:id" element={<ArticleEditorPage />} />
+                <Route path="articles/new" element={<ArticleEditorLayout />} />
+                <Route path="articles/:id" element={<ArticleEditorLayout />} />
                 <Route path="reviews" element={<ReviewModerationPage />} />
                 <Route path="claims" element={<AdminClaimsPage />} />
                 <Route path="referrals" element={<AdminReferralsPage />} />
                 <Route path="micro-content" element={<AdminMicroContentPage />} />
+                <Route path="media" element={<AdminMediaPage />} />
                 <Route path="health" element={<AdminHealthPage />} />
               </Route>
             </Route>

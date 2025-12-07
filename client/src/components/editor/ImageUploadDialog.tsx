@@ -65,11 +65,7 @@ export default function ImageUploadDialog({ open, onOpenChange, onInsert }: Imag
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await api.post('/upload/image', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
+      const response = await api.post('/upload/image', formData)
 
       const uploadedUrl = response.data.url
       onInsert(uploadedUrl, altText || file.name)

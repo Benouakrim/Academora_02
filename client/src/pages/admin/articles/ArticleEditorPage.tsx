@@ -12,6 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import RichTextEditor from '@/components/editor/RichTextEditor'
 import ImageUpload from '@/components/common/ImageUpload'
 import PerformancePanel from '@/components/editor/prediction/PerformancePanel'
+import CompetitorComparisonPanel from '@/components/editor/prediction/CompetitorComparisonPanel'
+import TitleSimulatorPanel from '@/components/editor/prediction/TitleSimulatorPanel'
+import ROICalculatorPanel from '@/components/editor/prediction/ROICalculatorPanel'
 import { useArticlePrediction } from '@/hooks/useArticlePrediction'
 import { api } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
@@ -38,9 +41,27 @@ export default function ArticleEditorPage() {
   const queryClient = useQueryClient()
   const [isAutoSlugging, setIsAutoSlugging] = useState(true)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [prediction, setPrediction] = useState<any>(null)
 
+  const [prediction, setPrediction] = useState<any>(null)
   const predictionMutation = useArticlePrediction()
+
+  // Fetch prediction history on load (new)
+  const { data: predictionHistory = [] } = useQuery({
+    queryKey: ['prediction-history', id],
+    enabled: isEdit,
+    queryFn: async () => {
+      const res = await api.get(`/predictions/${id}/history`)
+      // API returns { ok: true, data: [...] }
+      return Array.isArray(res.data) ? res.data : (res.data?.data || [])
+    }
+  })
+
+  // Set latest prediction from history on load
+  useEffect(() => {
+    if (predictionHistory && Array.isArray(predictionHistory) && predictionHistory.length > 0) {
+      setPrediction(predictionHistory[predictionHistory.length - 1])
+    }
+  }, [predictionHistory])
 
   // Fetch Taxonomies
   const { data: taxonomies } = useQuery({
@@ -233,7 +254,7 @@ export default function ArticleEditorPage() {
         </div>
       </div>
 
-      <div className="container mx-auto max-w-5xl px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="container mx-auto max-w-6xl px-3 py-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Main Content Column */}
         <div className="lg:col-span-2 space-y-6">
@@ -274,11 +295,11 @@ export default function ArticleEditorPage() {
           {/* Performance Panel */}
           <PerformancePanel 
             prediction={prediction}
+            predictionHistory={predictionHistory || []}
             onAnalyze={() => {
               const content = form.watch('content')
               const title = form.watch('title')
               const tags = form.watch('focusKeyword')?.split(',').map(t => t.trim()).filter(Boolean) || []
-              
               predictionMutation.mutate({
                 content: content || '',
                 title,
@@ -287,11 +308,28 @@ export default function ArticleEditorPage() {
                 articleId: id
               }, {
                 onSuccess: (res: any) => {
-                  setPrediction(res.data)
+                  setPrediction(res)
                 }
               })
             }}
           />
+
+          {/* Competitor Comparison Panel */}
+          {prediction && (
+            <CompetitorComparisonPanel 
+              prediction={prediction}
+              articleKeyword={form.watch('focusKeyword') || 'your topic'}
+            />
+          )}
+
+          {/* Title Simulator Panel */}
+          <TitleSimulatorPanel 
+            currentTitle={form.watch('title')}
+            focusKeyword={form.watch('focusKeyword')}
+          />
+
+          {/* ROI Calculator Panel */}
+          <ROICalculatorPanel prediction={prediction} />
 
           {/* Featured Image */}
           <div className="space-y-3">

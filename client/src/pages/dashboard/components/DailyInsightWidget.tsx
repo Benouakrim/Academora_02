@@ -63,10 +63,10 @@ export default function DailyInsightWidget() {
 
   if (!canGenerateInsight) {
     return (
-      <Card className="border-l-4 border-l-blue-500 bg-blue-50/50">
+      <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400 bg-blue-50/50 dark:bg-blue-950/20">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Lightbulb className="w-4 h-4 text-blue-600" />
+            <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             Daily Insight
           </CardTitle>
         </CardHeader>
@@ -100,10 +100,10 @@ export default function DailyInsightWidget() {
   if (!data) return null
 
   return (
-    <Card className="border-l-4 border-l-blue-500 bg-gradient-to-br from-blue-50/50 to-cyan-50/50">
+    <Card className="border-l-4 border-l-blue-500 dark:border-l-blue-400 bg-gradient-to-br from-blue-50/50 to-cyan-50/50 dark:from-blue-950/20 dark:to-cyan-950/20">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <Lightbulb className="w-4 h-4 text-blue-600" />
+          <Lightbulb className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           {data.title}
         </CardTitle>
       </CardHeader>

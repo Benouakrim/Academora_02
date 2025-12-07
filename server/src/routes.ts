@@ -33,9 +33,11 @@ import academicProfileRoutes from './routes/academicProfile';
 import financialProfileRoutes from './routes/financialProfile';
 import profilesRoutes from './routes/profiles';
 import predictionRoutes from './routes/predictionRoutes';
+import mediaRoutes from './routes/media';
 
 // Public routes (NO AUTH)
 router.use('/profiles', profilesRoutes);
+router.use('/media', mediaRoutes);
 
 // Webhooks - NO AUTH (uses signature verification)
 router.use('/webhooks', webhookRoutes);

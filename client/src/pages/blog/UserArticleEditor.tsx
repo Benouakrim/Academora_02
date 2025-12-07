@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
+import Navbar from '@/components/layout/Navbar'
+import Footer from '@/components/layout/Footer'
 
 export default function UserArticleEditor() {
   const navigate = useNavigate()
@@ -57,9 +59,12 @@ export default function UserArticleEditor() {
   })
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 pb-20">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Write an Article</h1>
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex-1">
+        <div className="mx-auto max-w-4xl px-4 py-8 pb-20">
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-3xl font-bold">Write an Article</h1>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
           <Button variant="secondary" onClick={() => mutate('DRAFT')} disabled={isPending}>
@@ -111,6 +116,9 @@ export default function UserArticleEditor() {
           />
         </div>
       </div>
+        </div>
+      </main>
+      <Footer />
     </div>
   )
 }

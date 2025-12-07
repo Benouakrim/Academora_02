@@ -1,16 +1,58 @@
+import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, Sparkles, Search } from 'lucide-react'
+import { ArrowRight, Sparkles, Search, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import AnimatedBackground from '@/components/ui/animated-background'
+import { mediaApi } from '@/api/mediaApi'
 
 export default function HeroSection() {
+  const videoSectionRef = useRef<HTMLDivElement>(null)
+  const bgImageRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    // Fetch hero video for background image
+    const fetchHeroImage = async () => {
+      try {
+        const hero = await mediaApi.getHeroVideo()
+        if (hero?.thumbnailUrl) {
+          bgImageRef.current = hero.thumbnailUrl
+        }
+      } catch (error) {
+        console.error('Failed to fetch hero image:', error)
+      }
+    }
+
+    fetchHeroImage()
+  }, [])
+
+  const scrollToVideos = () => {
+    videoSectionRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
   return (
-    <section className="relative overflow-hidden min-h-[90vh] flex items-center justify-center pt-16">
-      {/* Dynamic Background Layer */}
+    <section 
+      ref={videoSectionRef}
+      className="relative overflow-hidden min-h-[90vh] flex items-center justify-center pt-16"
+      style={{
+        backgroundImage: bgImageRef.current ? `url(${bgImageRef.current})` : 'none',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      {/* Background Overlay for Readability */}
       <div className="absolute inset-0 z-0">
-        <AnimatedBackground intensity={2} className="opacity-50 dark:opacity-30" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
+        {bgImageRef.current ? (
+          <>
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/50 to-background" />
+          </>
+        ) : (
+          <>
+            <AnimatedBackground intensity={2} className="opacity-50 dark:opacity-30" />
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/50 to-background" />
+          </>
+        )}
       </div>
 
       <div className="container relative z-10 px-4 sm:px-6 lg:px-8">
@@ -71,11 +113,15 @@ export default function HeroSection() {
                 Find Universities
               </Button>
             </Link>
-            <Link to="/sign-up">
-              <Button size="lg" variant="outline" className="h-14 px-8 text-lg gap-2 bg-white/50 dark:bg-black/50 backdrop-blur-md">
-                Create Free Account <ArrowRight className="w-5 h-5" />
-              </Button>
-            </Link>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="h-14 px-8 text-lg gap-2 bg-white/50 dark:bg-black/50 backdrop-blur-md"
+              onClick={scrollToVideos}
+            >
+              <Play className="w-5 h-5" />
+              Watch Demo
+            </Button>
           </motion.div>
 
           {/* Trust Indicators */}

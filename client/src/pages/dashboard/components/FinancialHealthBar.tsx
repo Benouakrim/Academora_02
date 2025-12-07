@@ -38,10 +38,10 @@ export default function FinancialHealthBar() {
 
   if (!maxBudget || !avgTuition) {
     return (
-      <Card className="border-l-4 border-l-emerald-500">
+      <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <DollarSign className="w-4 h-4 text-emerald-600" />
+            <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
             Financial Health
           </CardTitle>
         </CardHeader>
@@ -61,10 +61,10 @@ export default function FinancialHealthBar() {
   }
 
   return (
-    <Card className="border-l-4 border-l-emerald-500">
+    <Card className="border-l-4 border-l-emerald-500 dark:border-l-emerald-400">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <DollarSign className="w-4 h-4 text-emerald-600" />
+          <DollarSign className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           Financial Health
         </CardTitle>
       </CardHeader>
@@ -106,25 +106,25 @@ export default function FinancialHealthBar() {
         <div
           className={`rounded-lg p-3 flex items-start gap-2 ${
             isAffordable
-              ? 'bg-green-100/50 border border-green-200'
-              : 'bg-amber-100/50 border border-amber-200'
+              ? 'bg-green-100/50 dark:bg-green-950/30 border border-green-200 dark:border-green-900'
+              : 'bg-amber-100/50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900'
           }`}
         >
           <div className="flex-1">
             {isAffordable ? (
               <>
-                <p className="text-sm font-semibold text-green-900">Great News!</p>
-                <p className="text-xs text-green-800 mt-1">
+                <p className="text-sm font-semibold text-green-900 dark:text-green-100">Great News!</p>
+                <p className="text-xs text-green-800 dark:text-green-200 mt-1">
                   Your saved universities are {difference > 0 ? 'within' : 'below'} your budget by ${(difference / 1000).toFixed(1)}k on average.
                 </p>
               </>
             ) : (
               <>
-                <p className="text-sm font-semibold text-amber-900 flex items-center gap-1">
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-100 flex items-center gap-1">
                   <TrendingDown className="w-3 h-3" />
                   Budget Alert
                 </p>
-                <p className="text-xs text-amber-800 mt-1">
+                <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
                   Your saved universities exceed your budget by ${(difference / 1000).toFixed(1)}k on average. Consider exploring more affordable options.
                 </p>
               </>

@@ -107,7 +107,7 @@ export default function DynamicNextSteps() {
         {/* Success State */}
         {!primaryStep && (
           <div className="text-center py-4 space-y-2">
-            <CheckCircle className="w-8 h-8 mx-auto text-green-600" />
+            <CheckCircle className="w-8 h-8 mx-auto text-green-600 dark:text-green-400" />
             <p className="text-sm font-semibold">You're All Set!</p>
             <p className="text-xs text-muted-foreground">
               Explore your saved universities or discover new matches.

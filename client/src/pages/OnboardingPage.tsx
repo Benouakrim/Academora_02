@@ -22,6 +22,8 @@ import { LocationAdditionalStep } from './onboarding/LocationAdditionalStep'
 import { OrganizationStep } from './onboarding/OrganizationStep'
 import { SuccessStep } from './onboarding/SuccessStep'
 import { toast } from 'sonner'
+import Navbar from '@/components/layout/Navbar'
+import Footer from '@/components/layout/Footer'
 
 export default function OnboardingPage() {
   const navigate = useNavigate()
@@ -247,14 +249,20 @@ export default function OnboardingPage() {
   // Show loading spinner while checking for existing data
   if (isLoadingData) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-primary" />
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-primary" />
+        </div>
+        <Footer />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 py-8 px-4">
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex-1 bg-gradient-to-b from-background to-muted/20 py-8 px-4">
       <div className="max-w-5xl mx-auto">
         {/* Progress Bar */}
         <div className="mb-8">
@@ -343,6 +351,8 @@ export default function OnboardingPage() {
           Your information is secure and will help us provide better recommendations
         </p>
       </div>
+      </main>
+      <Footer />
     </div>
   )
 }

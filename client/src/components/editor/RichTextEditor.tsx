@@ -1,8 +1,10 @@
-import { useArticleEditor } from '@/hooks/useArticleEditor'
+import { useEffect, useState } from 'react'
 import { EditorContent } from '@tiptap/react'
+import { Clock, FileText, BookOpen } from 'lucide-react'
+import { useArticleEditor } from '@/hooks/useArticleEditor'
 import EditorToolbar from './EditorToolbar'
 import EditorBubbleMenu from './EditorBubbleMenu'
-import { Clock, FileText, BookOpen } from 'lucide-react'
+import BlockLibraryMenu from '@/cms/menus/BlockLibraryMenu'
 import '@/styles/editor.css'
 
 type Props = {
@@ -22,6 +24,9 @@ export default function RichTextEditor({
   mode = 'user',
   showStats = false
 }: Props) {
+  const [showBlockMenu, setShowBlockMenu] = useState(false)
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null)
+
   const { editor, isReady, stats } = useArticleEditor({
     content,
     onChange,
@@ -29,6 +34,56 @@ export default function RichTextEditor({
     placeholder,
     mode
   })
+
+  // Slash command to open the block library
+  useEffect(() => {
+    if (!editor) return
+
+    const handleUpdate = ({ editor: ed }: { editor: typeof editor }) => {
+      const { state, view } = ed
+      const { selection } = state
+      const from = selection.from
+      const textBefore = state.doc.textBetween(Math.max(0, from - 10), from, '\n', '\n')
+
+      if (textBefore.endsWith('/') && !showBlockMenu) {
+        const coords = view.coordsAtPos(from)
+        setMenuPosition({
+          top: coords.top + window.scrollY + 20,
+          left: coords.left + window.scrollX,
+        })
+        setShowBlockMenu(true)
+
+        // Remove the slash so it doesn't linger in the doc
+        ed.commands.deleteRange({ from: Math.max(0, from - 1), to: from })
+      }
+    }
+
+    editor.on('update', handleUpdate)
+    return () => editor.off('update', handleUpdate)
+  }, [editor, showBlockMenu])
+
+  // Keyboard close
+  useEffect(() => {
+    if (!showBlockMenu) return
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowBlockMenu(false)
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [showBlockMenu])
+
+  const openBlockMenu = () => {
+    if (!editor) return
+    const { view, state } = editor
+    const coords = view.coordsAtPos(state.selection.from)
+    setMenuPosition({
+      top: coords.top + window.scrollY + 20,
+      left: coords.left + window.scrollX,
+    })
+    setShowBlockMenu(true)
+  }
 
   if (!editor) {
     return (
@@ -45,18 +100,32 @@ export default function RichTextEditor({
     <div className="border rounded-xl overflow-hidden bg-card shadow-sm flex flex-col h-full animate-fadeIn">
       {editable && (
         <>
-          <EditorToolbar editor={editor} />
+            <div className="editor-chrome sticky top-0 z-30">
+              <div className="editor-toolbar-shell">
+                <EditorToolbar editor={editor} onOpenBlockLibrary={openBlockMenu} />
+              </div>
+            </div>
           <EditorBubbleMenu editor={editor} />
         </>
       )}
-      
-      <div className="flex-1 overflow-y-auto relative">
-        <EditorContent editor={editor} className="h-full" />
-      </div>
+
+        <div className="editor-body">
+          <div className="editor-paper">
+            <EditorContent editor={editor} className="h-full" />
+          </div>
+        </div>
+
+      {showBlockMenu && editor && (
+        <BlockLibraryMenu
+          editor={editor}
+          onClose={() => setShowBlockMenu(false)}
+          position={menuPosition || undefined}
+        />
+      )}
 
       {/* Stats Footer */}
       {showStats && stats && isReady && (
-        <div className="border-t bg-muted/20 px-6 py-3 flex items-center gap-6 text-xs text-muted-foreground">
+          <div className="editor-statusbar">
           <div className="flex items-center gap-2">
             <FileText className="h-3.5 w-3.5" />
             <span>{stats.words} words</span>

@@ -12,8 +12,9 @@ import { api } from '@/lib/api'
 import { toast } from 'sonner'
 import { useUserStore } from '@/store/useUserStore'
 import { Badge } from '@/components/ui/badge'
-import { X, Plus, AlertTriangle } from 'lucide-react'
-import { useState } from 'react'
+import { X, Plus, AlertTriangle, Upload, Loader2 } from 'lucide-react'
+import ImageUpload from '@/components/common/ImageUpload'
+import { useState, useEffect, useCallback } from 'react'
 
 type Props = {
   initialData?: Record<string, any> | null
@@ -80,6 +81,11 @@ function TagInput({
 export default function ProfileForm({ initialData }: Props) {
   const { fetchProfile } = useUserStore()
   const [showAccountTypeWarning, setShowAccountTypeWarning] = useState(false)
+  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.profileImage || null)
+  const [imageUploading, setImageUploading] = useState(false)
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -111,24 +117,108 @@ export default function ProfileForm({ initialData }: Props) {
     },
   })
 
+  const { isDirty } = form.formState
+
+  // Handle unsaved changes warning on page unload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty || profileImage) {
+        e.preventDefault()
+        e.returnValue = ''
+        return ''
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty, profileImage])
+
+  // Handle image selection and validation
+  const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validation
+    const maxSizeInBytes = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSizeInBytes) {
+      toast.error('Image size must be less than 5MB')
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file')
+      return
+    }
+
+    // Create preview
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setImagePreview(event.target?.result as string)
+    }
+    reader.readAsDataURL(file)
+
+    setProfileImage(file)
+  }, [])
+
+  // Upload profile image
+  const uploadProfileImage = useCallback(async () => {
+    if (!profileImage) return
+
+    try {
+      setImageUploading(true)
+      const formData = new FormData()
+      formData.append('image', profileImage)
+
+      const response = await api.post('/user/upload-profile-image', formData)
+
+      setProfileImage(null)
+      toast.success('Profile image uploaded successfully')
+      await fetchProfile()
+
+      return response.data
+    } catch (error) {
+      toast.error('Failed to upload image')
+      console.error('Image upload error:', error)
+    } finally {
+      setImageUploading(false)
+    }
+  }, [profileImage, fetchProfile])
+
   const onSubmit = async (values: ProfileFormValues) => {
     try {
-      await api.patch('/user/profile', values)
-      toast.success('Profile updated successfully')
+      setIsSubmitting(true)
+
+      // Update profile with new avatar URL if changed
+      const updateData = {
+        ...values,
+        ...(imagePreview && imagePreview !== initialData?.profileImage ? { avatarUrl: imagePreview } : {})
+      }
+
+      // Update profile
+      await api.patch('/user/profile', updateData)
+      toast.success('Profile updated successfully', {
+        description: 'All changes have been saved.',
+      })
+      
+      form.reset(values)
+      setProfileImage(null)
       await fetchProfile()
     } catch (error) {
-      toast.error('Failed to update profile')
+      console.error('Profile update error:', error)
+      toast.error('Failed to update profile', {
+        description: 'Please try again or contact support.',
+      })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-      <Tabs defaultValue="academics" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-6">
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6">
           <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="academics">Academics</TabsTrigger>
           <TabsTrigger value="personal">Personal</TabsTrigger>
-          <TabsTrigger value="financials">Financials</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -138,6 +228,24 @@ export default function ProfileForm({ initialData }: Props) {
               <CardDescription>Update your account type and primary goals.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Profile Image Upload Section */}
+              <div className="space-y-3 pb-6 border-b">
+                <label className="text-sm font-medium">Profile Picture</label>
+                <ImageUpload 
+                  value={imagePreview}
+                  onChange={(url) => {
+                    setImagePreview(url)
+                    if (url) {
+                      // For profile images, we'll need to update the user store
+                      // The actual URL will be used directly
+                    }
+                  }}
+                  type="image"
+                  allowUrl={true}
+                  maxSizeMB={5}
+                />
+              </div>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium">Account Type</label>
                 <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-md">
@@ -227,48 +335,6 @@ export default function ProfileForm({ initialData }: Props) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="academics">
-          <Card>
-            <CardHeader>
-              <CardTitle>Academic Profile</CardTitle>
-              <CardDescription>Your stats help us find realistic matches.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">GPA (4.0 Scale)</label>
-                  <Input 
-                    type="number" 
-                    step="0.01" 
-                    {...form.register('gpa', { valueAsNumber: true })} 
-                    placeholder="3.8"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Intended Major</label>
-                  <Input {...form.register('preferredMajor')} placeholder="Computer Science" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">SAT Score</label>
-                  <Input 
-                    type="number" 
-                    {...form.register('satScore', { valueAsNumber: true })} 
-                    placeholder="1400"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">ACT Score</label>
-                  <Input 
-                    type="number" 
-                    {...form.register('actScore', { valueAsNumber: true })} 
-                    placeholder="32"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="personal">
           <Card>
             <CardHeader>
@@ -320,120 +386,67 @@ export default function ProfileForm({ initialData }: Props) {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="financials">
-          <Card>
-            <CardHeader>
-              <CardTitle>Financial Planning</CardTitle>
-              <CardDescription>Used to calculate affordability scores and financial aid estimates.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium">Max Annual Budget</label>
-                  <span className="text-primary font-bold text-lg">
-                    ${(form.watch('maxBudget') || 0).toLocaleString()}
-                  </span>
-                </div>
-                <Slider
-                  min={5000}
-                  max={100000}
-                  step={1000}
-                  value={[form.watch('maxBudget') || 50000]}
-                  onValueChange={(v) => form.setValue('maxBudget', v[0])}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Includes tuition, room, board, and living expenses.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Household Income</label>
-                  <Input 
-                    type="number" 
-                    {...form.register('householdIncome', { valueAsNumber: true })} 
-                    placeholder="75000"
-                  />
-                  <p className="text-xs text-muted-foreground">Annual gross income</p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Family Size</label>
-                  <Input 
-                    type="number" 
-                    {...form.register('familySize', { valueAsNumber: true })} 
-                    placeholder="4"
-                  />
-                  <p className="text-xs text-muted-foreground">Total household members</p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Savings</label>
-                  <Input 
-                    type="number" 
-                    {...form.register('savings', { valueAsNumber: true })} 
-                    placeholder="25000"
-                  />
-                  <p className="text-xs text-muted-foreground">Available cash/savings</p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Investments</label>
-                  <Input 
-                    type="number" 
-                    {...form.register('investments', { valueAsNumber: true })} 
-                    placeholder="50000"
-                  />
-                  <p className="text-xs text-muted-foreground">529, stocks, bonds, etc.</p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Expected Family Contribution (EFC)</label>
-                  <Input 
-                    type="number" 
-                    {...form.register('expectedFamilyContribution', { valueAsNumber: true })} 
-                    placeholder="12000"
-                  />
-                  <p className="text-xs text-muted-foreground">From FAFSA calculation</p>
-                </div>
-              </div>
-
-              <div className="space-y-4 pt-4 border-t">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="pellGrant"
-                    {...form.register('eligibleForPellGrant')}
-                    className="h-4 w-4 rounded border-gray-300"
-                  />
-                  <label htmlFor="pellGrant" className="text-sm font-medium cursor-pointer">
-                    Eligible for Pell Grant
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="stateAid"
-                    {...form.register('eligibleForStateAid')}
-                    className="h-4 w-4 rounded border-gray-300"
-                  />
-                  <label htmlFor="stateAid" className="text-sm font-medium cursor-pointer">
-                    Eligible for State Aid
-                  </label>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
 
-      <div className="flex justify-end">
-        <Button type="submit" size="lg" className="w-full md:w-auto">
-          Save Profile
+      {/* Unsaved Changes Warning */}
+      {(isDirty || profileImage) && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              You have unsaved changes
+            </p>
+            <p className="text-xs text-amber-800 dark:text-amber-200 mt-1">
+              {profileImage ? 'Your profile image and other changes will be saved.' : 'Save your changes to apply them.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            form.reset()
+            setProfileImage(null)
+            setImagePreview(initialData?.profileImage || null)
+          }}
+          disabled={!isDirty && !profileImage}
+        >
+          Discard Changes
+        </Button>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={isSubmitting || (!isDirty && !profileImage)}
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Save Profile'
+          )}
         </Button>
       </div>
+
+      {/* Unsaved Changes Dialog for Navigation */}
+      <AlertDialog open={showUnsavedWarning} onOpenChange={setShowUnsavedWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes in your profile. Are you sure you want to leave without saving?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Editing</AlertDialogCancel>
+            <AlertDialogAction>Discard Changes</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   )
 }

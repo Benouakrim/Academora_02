@@ -808,3 +808,38 @@ model ArticlePrediction {
   @@index([createdAt])
 }
 
+model SystemBenchmark {
+  id        String  @id @default(uuid())
+  category  String  @unique
+  rpm       Float   // Revenue Per Mille (per 1000 pageviews) in USD
+  avgSearchVolume Int
+  avgCTR    Float   // Average click-through rate from search results (0-1)
+  seasonalMultiplier Float @default(1.0)
+  competitionLevel Int @default(5) // 1-10 scale
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
+// --- Media Library Models ---
+
+model Video {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  url         String   // Cloudinary URL or YouTube/Vimeo Link
+  publicId    String?  // Cloudinary Public ID (null for external links)
+  type        String   // 'UPLOAD' or 'EXTERNAL'
+  thumbnailUrl String? // Thumbnail for video preview
+  position    Int      @default(0) // Sort order for display
+  isActive    Boolean  @default(true) // Visibility toggle
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive, position])
+  @@index([createdAt])
+}
+

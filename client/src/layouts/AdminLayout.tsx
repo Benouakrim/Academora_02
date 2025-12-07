@@ -1,7 +1,9 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, School, FileText, MessageSquare, Activity, Shield, LogOut, ShieldCheck, Layers, Users, Gift } from 'lucide-react'
+import { LayoutDashboard, School, FileText, MessageSquare, Activity, Shield, LogOut, ShieldCheck, Layers, Users, Gift, Image } from 'lucide-react'
 import useAdmin from '@/hooks/useAdmin'
 import { Button } from '@/components/ui/button'
+import Navbar from '@/components/layout/Navbar'
+import Footer from '@/components/layout/Footer'
 
 export default function AdminLayout() {
   const { isLoading } = useAdmin()
@@ -13,6 +15,7 @@ export default function AdminLayout() {
     { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
     { to: '/admin/universities', label: 'Universities', icon: School },
     { to: '/admin/articles', label: 'Articles', icon: FileText },
+    { to: '/admin/media', label: 'Media Library', icon: Image },
     { to: '/admin/reviews', label: 'Reviews', icon: MessageSquare },
     { to: '/admin/claims', label: 'Claims', icon: ShieldCheck },
     { to: '/admin/groups', label: 'Groups', icon: Users },
@@ -22,14 +25,16 @@ export default function AdminLayout() {
   ]
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-black text-foreground flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-neutral-900 border-r border-border fixed inset-y-0 left-0 z-50 flex flex-col">
-        <div className="p-6 border-b border-border">
-          <div className="flex items-center gap-2 text-primary font-bold text-xl">
-            <Shield className="w-6 h-6" /> Admin
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <div className="flex-1 bg-neutral-50 dark:bg-black text-foreground flex">
+        {/* Sidebar */}
+        <aside className="w-64 bg-white dark:bg-neutral-900 border-r border-border fixed inset-y-0 top-16 left-0 z-40 flex flex-col">
+          <div className="p-6 border-b border-border">
+            <div className="flex items-center gap-2 text-primary font-bold text-xl">
+              <Shield className="w-6 h-6" /> Admin
+            </div>
           </div>
-        </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {navItems.map((item) => (
@@ -62,11 +67,13 @@ export default function AdminLayout() {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 ml-64">
-        <main className="p-8 max-w-7xl mx-auto">
+      <div className="flex-1 ml-64 flex flex-col">
+        <main className="flex-1 p-8 max-w-7xl mx-auto w-full">
           <Outlet />
         </main>
+        <Footer />
       </div>
+    </div>
     </div>
   )
 }

@@ -1,3 +1,17 @@
+import { z } from 'zod'
+export async function batchAnalyze(req: Request, res: Response, next: NextFunction) {
+  try {
+    const schema = z.object({ articleIds: z.array(z.string()) })
+    const { articleIds } = schema.parse(req.body)
+    const results = await predictionService.runBatchPredictions(articleIds)
+    return res.status(200).json({ ok: true, data: results })
+  } catch (err) {
+    if (err instanceof ZodError) {
+      return next(new AppError(400, err.flatten().formErrors.join('. ') || err.message))
+    }
+    next(err)
+  }
+}
 import { Request, Response, NextFunction } from 'express'
 import { ZodError } from 'zod'
 import predictionService from '../services/PredictionService'
@@ -30,4 +44,4 @@ export async function history(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-export default { analyze, history }
+export default { analyze, history, batchAnalyze }

@@ -8,6 +8,7 @@ import MissingClerkKey from '@/components/auth/MissingClerkKey'
 import App from './App.tsx'
 import './styles/globals.css'
 import './styles/article-content.css'
+import './styles/dashboard.css'
 import './i18n/i18n.ts'
 
 // Environment-aware Clerk publishable key selection

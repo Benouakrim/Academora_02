@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { ArrowLeft, Calendar, Clock, Eye, Share2, Bookmark, Edit, Trash2, Heart, Shield } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -13,6 +13,7 @@ import CommentSection from '@/components/blog/CommentSection';
 import { toast } from 'sonner';
 import { useUser } from '@clerk/clerk-react';
 import { marked } from 'marked';
+import { hydrateInteractiveBlocks } from '@/cms';
 
 marked.setOptions({ gfm: true, breaks: true });
 import {
@@ -34,6 +35,7 @@ export default function ArticlePage() {
   const [isSaved, setIsSaved] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   const { data: article, isLoading, error } = useQuery({
     queryKey: ['article', slug],
@@ -125,6 +127,21 @@ export default function ArticlePage() {
     return looksLikeHtml ? raw : marked.parse(raw, { breaks: true });
   }, [article]);
 
+  // Hydrate interactive CMS blocks (quiz, checklist, etc.) once content is rendered
+  useEffect(() => {
+    if (!renderedContent || !contentRef.current) return;
+    // Run after paint to ensure DOM nodes exist
+    const id = window.setTimeout(() => {
+      try {
+        hydrateInteractiveBlocks(contentRef.current as HTMLElement);
+      } catch (err) {
+        console.warn('Hydration of interactive blocks failed', err);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(id);
+  }, [renderedContent]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
@@ -181,7 +198,7 @@ export default function ArticlePage() {
                   size="sm"
                   variant="default"
                   className="gap-2"
-                  onClick={() => navigate(`/admin/articles/edit/${article.id}`)}
+                  onClick={() => navigate(`/admin/articles/${article.id}`)}
                 >
                   <Edit className="h-4 w-4" />
                   Edit Article
@@ -352,6 +369,7 @@ export default function ArticlePage() {
                   prose-td:border prose-td:border-border prose-td:p-3
                   prose-tr:border-b prose-tr:border-border
                 "
+                ref={contentRef}
                 dangerouslySetInnerHTML={{ __html: renderedContent }}
               />
             </div>

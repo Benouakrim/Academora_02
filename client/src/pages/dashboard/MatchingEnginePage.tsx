@@ -15,7 +15,7 @@ import type { ImportanceFactors } from '@/store/useMatchingProfileStore'
 // Define a simple component for match result visualization
 function MatchResultCard({ result }: { result: UniversityMatchResult }) {
     const u = result.university
-    const scoreColor = result.matchScore > 80 ? 'text-green-500' : result.matchScore > 60 ? 'text-amber-500' : 'text-red-500'
+    const scoreColor = result.matchScore > 80 ? 'text-green-600 dark:text-green-400' : result.matchScore > 60 ? 'text-amber-600 dark:text-amber-400' : 'text-red-600 dark:text-red-400'
 
     return (
         <Card className="flex items-center gap-4 p-4 hover:shadow-lg transition-shadow">

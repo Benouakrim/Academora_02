@@ -1,4 +1,5 @@
 import HeroSection from './HeroSection'
+import VideoCarousel from '@/components/landing/VideoCarousel'
 import FeatureShowcase from './FeatureShowcase'
 import SocialProofSection from './SocialProofSection'
 import BenefitsSection from './BenefitsSection'
@@ -15,6 +16,9 @@ export default function LandingPage() {
     <div>
       {/* Hero Section - Above the fold */}
       <HeroSection />
+
+      {/* Video Gallery - Demo videos */}
+      <VideoCarousel />
 
       {/* Core Features - What we offer */}
       <FeatureShowcase />

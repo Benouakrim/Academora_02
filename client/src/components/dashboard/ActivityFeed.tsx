@@ -106,7 +106,7 @@ export default function ActivityFeed({ data }: { data: DashboardData }) {
               ))})
               {data.recent.articles.length === 0 && <p className="text-xs text-muted-foreground">No articles published yet.</p>}
             </div>
-            <Link to="/blog/write">
+            <Link to="/articles/new">
               <Button variant="link" className="px-0 mt-2 h-auto text-xs">Write New Article <ArrowRight className="ml-1 h-3 w-3" /></Button>
             </Link>
           </CardContent>

@@ -21,6 +21,17 @@ import Youtube from '@tiptap/extension-youtube'
 import CharacterCount from '@tiptap/extension-character-count'
 import { common, createLowlight } from 'lowlight'
 import { FontSize } from '@/components/editor/extensions/FontSize'
+import {
+  CalculatorExtension,
+  ChecklistExtension,
+  CollapsibleExtension,
+  ComparisonExtension,
+  CtaExtension,
+  QuizExtension,
+  StepGuideExtension,
+  TabsExtension,
+  TimelineExtension,
+} from '@/cms'
 import { api } from '@/lib/api'
 
 const lowlight = createLowlight(common)
@@ -174,6 +185,17 @@ export function useArticleEditor({
           class: 'border border-border p-3',
         },
       }),
+
+      // Advanced interactive CMS blocks (shared between admin & user)
+      ChecklistExtension,
+      QuizExtension,
+      TimelineExtension,
+      StepGuideExtension,
+      CollapsibleExtension,
+      TabsExtension,
+      ComparisonExtension,
+      CalculatorExtension,
+      CtaExtension,
       
       // Character count for SEO and readability insights
       CharacterCount.configure({

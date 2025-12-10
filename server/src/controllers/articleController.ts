@@ -77,6 +77,8 @@ export const getArticles = async (req: Request, res: Response, next: NextFunctio
 export const getArticleBySlug = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { slug } = req.params;
+    const authFn = (req as any).auth;
+    const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
 
     // Accept either slug or id to support admin edit routes
     const article = await prisma.article.findFirst({
@@ -91,12 +93,31 @@ export const getArticleBySlug = async (req: Request, res: Response, next: NextFu
         tags: true,
         author: {
           select: { id: true, firstName: true, lastName: true, avatarUrl: true }
+        },
+        reviewedBy: {
+          select: { id: true, firstName: true, lastName: true }
         }
       }
     });
 
     if (!article) {
       throw new AppError(404, 'Article not found');
+    }
+
+    // Issue #2: Check article visibility
+    // Only allow viewing of unpublished articles if user is the author or an admin
+    if (article.status !== 'PUBLISHED') {
+      let user = null;
+      if (clerkId) {
+        user = await prisma.user.findUnique({ where: { clerkId } });
+      }
+      
+      const isAuthor = user?.id === article.authorId;
+      const isAdmin = user?.role === UserRole.ADMIN;
+      
+      if (!isAuthor && !isAdmin) {
+        throw new AppError(403, 'This article is not available for public viewing');
+      }
     }
 
     res.status(200).json(article);
@@ -235,14 +256,27 @@ export const updateArticle = async (req: Request, res: Response, next: NextFunct
       canonicalUrl
     };
 
+    // If moving away from a rejected state, clear any scheduled deletion
+    if (finalStatus !== 'REJECTED') {
+      updateData.scheduledForDeletion = null;
+    }
+
     if (finalStatus === 'PUBLISHED' && existing.status !== 'PUBLISHED') {
       updateData.publishedAt = new Date();
     }
 
-    if (user.role === UserRole.ADMIN && finalStatus === 'REJECTED') {
+    if (user.role === UserRole.ADMIN && (finalStatus === 'REJECTED' || finalStatus === 'NEEDS_REVISION')) {
       updateData.rejectionReason = rejectionReason || existing.rejectionReason || 'No reason provided';
       updateData.reviewedAt = new Date();
       updateData.reviewedBy = { connect: { id: user.id } };
+
+      if (finalStatus === 'REJECTED') {
+        const newCount = (existing.rejectionCount || 0) + 1;
+        updateData.rejectionCount = newCount;
+        if (newCount >= 3) {
+          updateData.scheduledForDeletion = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+        }
+      }
     }
 
     // If user resubmits, clear old rejection metadata
@@ -251,7 +285,13 @@ export const updateArticle = async (req: Request, res: Response, next: NextFunct
       updateData.reviewedAt = null;
       updateData.reviewedBy = { disconnect: true };
     }
-
+      // If user resubmits from rejected/needs_revision, check rejection limit
+      if (finalStatus === 'PENDING' && (existing.status === 'REJECTED' || existing.status === 'NEEDS_REVISION')) {
+        if (existing.rejectionCount >= 3) {
+          throw new AppError(400, 'This article has been rejected multiple times and cannot be resubmitted. Please contact support.');
+        }
+        updateData.scheduledForDeletion = null; // Issue #4: Clear deletion schedule on resubmit
+      }
     if (categoryId) {
       updateData.category = { connect: { id: categoryId } };
     }
@@ -505,6 +545,12 @@ export const submitArticle = async (req: Request, res: Response, next: NextFunct
       throw new AppError(403, 'You can only submit your own articles');
     }
 
+    // Issue #3: Allow resubmission of rejected/needs_revision articles
+    // Issue #4: Check if article was rejected 3+ times
+    if ((article.status === 'REJECTED' || article.status === 'NEEDS_REVISION') && article.rejectionCount >= 3) {
+      throw new AppError(400, 'This article has been rejected multiple times and cannot be resubmitted. Please contact support.');
+    }
+
     // Enforce pending limit (exclude this article if already pending)
     if (article.status !== 'PENDING') {
       const pendingCount = await prisma.article.count({
@@ -522,6 +568,7 @@ export const submitArticle = async (req: Request, res: Response, next: NextFunct
         rejectionReason: null,
         reviewedAt: null,
         reviewedBy: { disconnect: true },
+        scheduledForDeletion: null, // Issue #4: Clear deletion schedule on resubmit
         // keep publishedAt null until approved
       }
     });
@@ -584,7 +631,7 @@ export const approveArticle = async (req: Request, res: Response, next: NextFunc
 export const rejectArticle = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
+    const { reason, rejectionStatus } = req.body; // rejectionStatus can be 'NEEDS_REVISION' or 'REJECTED'
     const authFn = (req as any).auth;
     const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
     if (!clerkId) throw new AppError(401, 'Unauthorized');
@@ -597,12 +644,24 @@ export const rejectArticle = async (req: Request, res: Response, next: NextFunct
     if (!article) throw new AppError(404, 'Article not found');
 
     const rejectionReason = reason || req.body.rejectionReason || 'No reason provided';
+    const finalStatus: ArticleStatus = rejectionStatus === 'NEEDS_REVISION' ? 'NEEDS_REVISION' : 'REJECTED';
+    
+    // Issue #4: Increment rejection count and check if we've exceeded the limit
+    let scheduledForDeletion: Date | null = null;
+    const newRejectionCount = (article.rejectionCount || 0) + 1;
+    
+    // If this is the 3rd rejection of REJECTED status, schedule deletion for 3 days later
+    if (finalStatus === 'REJECTED' && newRejectionCount >= 3) {
+      scheduledForDeletion = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days from now
+    }
 
     const updated = await prisma.article.update({
       where: { id },
       data: {
-        status: 'REJECTED',
+        status: finalStatus,
         rejectionReason,
+        rejectionCount: newRejectionCount,
+        scheduledForDeletion,
         reviewedAt: new Date(),
         reviewedBy: { connect: { id: reviewer.id } }
       }

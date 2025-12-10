@@ -87,7 +87,7 @@ export default function ArticlesList() {
               }}
               disabled={updatingStatusId === id}
             >
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className={`w-[120px] ${updatingStatusId === id ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -105,7 +105,7 @@ export default function ArticlesList() {
         cell: ({ row }) => {
           const id = row.original.id;
           // Try to get category id from row.original.category (if available)
-          const currentCatId = categoryMap[id] ?? row.original.category?.id ?? '';
+          const currentCatId = categoryMap[id] ?? (row.original.category ? (row.original.category as any).id : '') ?? '';
           return (
             <Select
               value={currentCatId}
@@ -117,9 +117,8 @@ export default function ArticlesList() {
                 } catch (e) {}
                 setUpdatingCategoryId(null);
               }}
-              disabled={updatingCategoryId === id}
             >
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className={`w-[140px] ${updatingCategoryId === id ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>

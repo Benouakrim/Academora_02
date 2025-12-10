@@ -22,8 +22,8 @@ export default function SecondaryCTASection() {
       color: "from-purple-500 to-pink-500",
       action: () => {
         // Trigger chat widget if available
-        if (window.Intercom) {
-          window.Intercom('show')
+        if ((window as any).Intercom) {
+          (window as any).Intercom('show')
         }
       }
     },

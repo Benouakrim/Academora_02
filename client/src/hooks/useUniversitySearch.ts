@@ -31,23 +31,30 @@ export type University = {
   internshipSupport: number | null;
 };
 
+export type ScoringReason = {
+  code: string;
+  message: string;
+  impact: 'positive' | 'negative' | 'neutral';
+  value?: number | string;
+};
+
 export type UniversityMatchResult = {
   university: University;
   matchScore: number;
   matchPercentage: number;
   breakdown: {
-    academic: number;
-    financial: number;
-    social: number;
-    location: number;
-    future: number;
+    academic: { score: number; reasons: ScoringReason[] };
+    financial: { score: number; reasons: ScoringReason[] };
+    social: { score: number; reasons: ScoringReason[] };
+    location: { score: number; reasons: ScoringReason[] };
+    future: { score: number; reasons: ScoringReason[] };
   };
   scoreBreakdown: {
-    academic: { score: number; weight: number; contribution: number };
-    financial: { score: number; weight: number; contribution: number };
-    social: { score: number; weight: number; contribution: number };
-    location: { score: number; weight: number; contribution: number };
-    future: { score: number; weight: number; contribution: number };
+    academic: { score: number; weight: number; contribution: number; reasons: ScoringReason[] };
+    financial: { score: number; weight: number; contribution: number; reasons: ScoringReason[] };
+    social: { score: number; weight: number; contribution: number; reasons: ScoringReason[] };
+    location: { score: number; weight: number; contribution: number; reasons: ScoringReason[] };
+    future: { score: number; weight: number; contribution: number; reasons: ScoringReason[] };
     total: number;
   };
 };

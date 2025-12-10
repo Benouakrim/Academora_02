@@ -7,11 +7,12 @@ export const clerkAuth = clerkMiddleware();
 
 // Require auth for protected routes, respond with 401 JSON if missing
 export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
-  const getAuth = (req as any).auth as (() => { userId?: string } | undefined);
-  const auth = typeof getAuth === 'function' ? getAuth() : undefined;
+  // Clerk middleware attaches `req.auth` as an object; support both object and getter function forms.
+  const authSource = (req as any).auth as any;
+  const auth = typeof authSource === 'function' ? authSource() : authSource;
   
   console.log('[requireAuth] Check:', {
-    hasAuthFn: typeof getAuth === 'function',
+    hasAuthFn: typeof authSource === 'function',
     auth,
     userId: auth?.userId
   });

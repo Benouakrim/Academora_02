@@ -136,7 +136,7 @@ export function PersonaRoleStep({ form }: PersonaRoleStepProps) {
           value={form.watch('focusArea') || ''}
           onValueChange={(value) => form.setValue('focusArea', value as any, { shouldValidate: true })}
         >
-          <SelectTrigger id="focusArea" className="h-12">
+          <SelectTrigger className="h-12">
             <SelectValue placeholder="Select your area of interest" />
           </SelectTrigger>
           <SelectContent>

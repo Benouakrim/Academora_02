@@ -26,7 +26,7 @@ type FormData = {
   excerpt: string
   categoryId: string
   content: string
-  status: 'DRAFT' | 'PUBLISHED' | 'PENDING' | 'REJECTED' | 'ARCHIVED'
+  status: 'DRAFT' | 'PUBLISHED' | 'PENDING' | 'REJECTED' | 'NEEDS_REVISION' | 'ARCHIVED'
   featuredImage: string
   metaTitle?: string
   metaDescription?: string
@@ -176,13 +176,30 @@ export default function ArticleEditorLayout() {
       }
     },
     onSuccess: () => {
-      toast.success(`Article ${!isNewArticle ? 'updated' : 'created'} successfully`)
+      const currentStatus = form.getValues('status')
+      let message = `Article ${!isNewArticle ? 'updated' : 'created'} successfully`
+      if (currentStatus === 'PENDING') {
+        message = 'Article submitted for review. You will be notified when it is reviewed.'
+      } else if (currentStatus === 'DRAFT') {
+        message = 'Article saved as draft'
+      } else if (currentStatus === 'PUBLISHED') {
+        message = 'Article published successfully!'
+      }
+      toast.success(message)
       queryClient.invalidateQueries({ queryKey: ['articles'] })
       setLastSaved(new Date())
       form.reset(form.getValues())
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to save article')
+      const errorMessage = error.response?.data?.message || 'Failed to save article'
+      toast.error(errorMessage)
+      // Show validation errors if any
+      const validationErrors = error.response?.data?.errors
+      if (validationErrors && typeof validationErrors === 'object') {
+        Object.entries(validationErrors).forEach(([field, message]) => {
+          toast.error(`${field}: ${message}`)
+        })
+      }
     }
   })
 
@@ -201,6 +218,30 @@ export default function ArticleEditorLayout() {
   }, [form, mutation])
 
   const onSubmit = (data: FormData) => {
+      // Issue #1: Validate required fields before submission
+      const errors: Record<string, string> = {}
+  
+      if (!data.title?.trim()) {
+        errors.title = 'Title is required'
+      }
+      if (!data.content?.trim()) {
+        errors.content = 'Content is required'
+      }
+      if (!data.categoryId?.trim()) {
+        errors.categoryId = 'Category is required'
+      }
+      if (!data.slug?.trim()) {
+        errors.slug = 'Slug is required'
+      }
+  
+      // If submitting for review and there are validation errors, show them
+      if ((data.status === 'PENDING' || data.status === 'PUBLISHED') && Object.keys(errors).length > 0) {
+        Object.entries(errors).forEach(([field, message]) => {
+          toast.error(`${field}: ${message}`)
+        })
+        return
+      }
+  
     mutation.mutate(data)
     if (data.status === 'PUBLISHED') {
       navigate('/admin/articles')
@@ -289,6 +330,7 @@ export default function ArticleEditorLayout() {
                   <SelectContent>
                     <SelectItem value="DRAFT">Draft</SelectItem>
                     <SelectItem value="PENDING">Pending</SelectItem>
+                    <SelectItem value="NEEDS_REVISION">Needs Revision</SelectItem>
                     <SelectItem value="REJECTED">Rejected</SelectItem>
                     <SelectItem value="PUBLISHED">Published</SelectItem>
                     <SelectItem value="ARCHIVED">Archived</SelectItem>
@@ -313,8 +355,12 @@ export default function ArticleEditorLayout() {
                 </Button>
                 <Button
                   type="button"
-                  disabled={mutation.isPending}
+                  disabled={mutation.isPending || (article?.rejectionCount ?? 0) >= 3}
                   onClick={() => {
+                    if ((article?.rejectionCount ?? 0) >= 3) {
+                      toast.error('This article reached the maximum number of rejections and cannot be resubmitted')
+                      return
+                    }
                     form.setValue('status', 'PENDING')
                     setTimeout(() => form.handleSubmit(onSubmit)(), 0)
                   }}
@@ -325,6 +371,15 @@ export default function ArticleEditorLayout() {
             )}
           </div>
         </div>
+
+        {(article?.scheduledForDeletion && (article.rejectionCount ?? 0) >= 3) && (
+          <div className="container mx-auto max-w-6xl px-3 pt-4">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              This article reached the rejection limit and is scheduled for deletion on{' '}
+              {new Date(article.scheduledForDeletion).toLocaleString()}. Please contact support if you need to keep it.
+            </div>
+          </div>
+        )}
 
         <div className="container mx-auto max-w-6xl px-3 py-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content Column */}

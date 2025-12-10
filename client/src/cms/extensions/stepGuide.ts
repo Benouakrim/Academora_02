@@ -87,14 +87,14 @@ export const StepGuideExtension = Node.create({
   },
   
   addNodeView() {
-    return ReactNodeViewRenderer(StepGuideView as React.ComponentType);
+    return ReactNodeViewRenderer(StepGuideView as any);
   },
   
   addCommands() {
     return {
       setStepGuide:
         (attributes: Record<string, unknown>) =>
-        ({ commands }: { commands: Record<string, unknown> }) => {
+        ({ commands }: { commands: any }) => {
           return commands.insertContent({
             type: this.name,
             attrs: attributes,

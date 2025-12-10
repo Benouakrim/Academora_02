@@ -124,7 +124,7 @@ export interface SearchState {
   
   // --- Debounced State ---
   debouncedCriteria: DiscoveryCriteria;
-  debounceTimerId: number | null;
+  debounceTimerId: NodeJS.Timeout | null;
   
   // --- Actions ---
   setCriteria: (criteria: Partial<DiscoveryCriteria>) => void;

@@ -110,7 +110,7 @@ export default function AdminMicroContentPage() {
   }
 
   const uniqueCategories = Array.from(
-    new Set(allMicroContent?.map((item) => item.category) || [])
+    new Set(allMicroContent?.map((item) => item.category).filter(Boolean) || [])
   );
 
   return (
@@ -197,7 +197,7 @@ export default function AdminMicroContentPage() {
                 <SelectItem value="all">All Categories</SelectItem>
                 {uniqueCategories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
-                    {cat.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                    {cat && cat.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
                   </SelectItem>
                 ))}
               </SelectContent>

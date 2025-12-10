@@ -17,19 +17,17 @@ export function useUnsavedChanges() {
   }, [form]);
 
   // Warn user before leaving page with unsaved changes
-  useBeforeUnload(
-    useEffect(() => {
-      if (isDirty) {
-        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-          e.preventDefault();
-          e.returnValue = '';
-        };
+  useEffect(() => {
+    if (isDirty) {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = '';
+      };
 
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-      }
-    }, [isDirty])
-  );
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }
+  }, [isDirty]);
 
   return { isDirty };
 }

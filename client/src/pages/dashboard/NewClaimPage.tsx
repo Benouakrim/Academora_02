@@ -101,7 +101,7 @@ export default function NewClaimPage() {
       await createClaimMutation.mutateAsync({
         universityId: values.entityType === 'university' ? values.universityId : undefined,
         universityGroupId: values.entityType === 'group' ? values.universityGroupId : undefined,
-        claimType: values.claimType,
+        claimType: values.claimType as any,
         requesterName: values.requesterName,
         requesterEmail: values.requesterEmail,
         institutionalEmail: values.institutionalEmail,

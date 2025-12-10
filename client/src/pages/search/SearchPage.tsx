@@ -12,6 +12,7 @@ import PaginationControls from '@/components/search/PaginationControls';
 import CategoryWeightPanel from '@/components/search/CategoryWeightPanel';
 import MatchModeEmptyState from '@/components/search/MatchModeEmptyState';
 import CompareFloatingButton from '@/components/search/CompareFloatingButton';
+import RecommendationsPanel from '@/components/search/RecommendationsPanel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -84,6 +85,16 @@ export default function SearchPage() {
         {viewMode === 'MATCH' && isProfileComplete && (
           <div className="mb-8">
             <CategoryWeightPanel />
+          </div>
+        )}
+
+        {/* Recommendations Panel - Only in Match Mode with Results */}
+        {viewMode === 'MATCH' && isProfileComplete && data && data.results.length > 0 && (
+          <div className="mb-8">
+            <RecommendationsPanel 
+              results={data.results}
+              userProfile={criteria.userProfile}
+            />
           </div>
         )}
 

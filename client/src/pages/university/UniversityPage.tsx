@@ -1,6 +1,8 @@
 import { useParams, Link } from 'react-router-dom'
 import { AlertCircle, ArrowLeft } from 'lucide-react'
 import { useUniversityDetail } from '@/hooks/useUniversityDetail'
+import { useAnalyticsTracking } from '@/hooks/useAnalyticsTracking'
+import { useEffect } from 'react'
 import UniversityHeader from './UniversityHeader'
 import UniversityTabs from './UniversityTabs'
 import { useState } from 'react';
@@ -58,6 +60,23 @@ export default function UniversityPage() {
   const { slug } = useParams<{ slug: string }>()
   const { data: university, isLoading, isError } = useUniversityDetail(slug || '')
   const [isCalculatorOpen, setCalculatorOpen] = useState(false);
+  const { trackPageView } = useAnalyticsTracking();
+
+  // Track university page view
+  useEffect(() => {
+    if (university?.id && slug) {
+      trackPageView({
+        entityType: 'university',
+        entityId: university.id,
+        title: university.name,
+        metadata: {
+          slug,
+          state: university.state,
+          type: university.type
+        }
+      });
+    }
+  }, [university?.id, slug, trackPageView]);
 
   if (isLoading) {
     return <LoadingSkeleton />

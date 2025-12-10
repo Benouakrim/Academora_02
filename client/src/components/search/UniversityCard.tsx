@@ -8,6 +8,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { useCompareStore } from '@/hooks/useCompare'
 import { useSearchStore } from '@/store/useSearchStore'
 import MatchBreakdownPanel from '@/components/search/MatchBreakdownPanel'
+import MatchRadarChart from '@/components/search/MatchRadarChart'
 import type { UniversityMatchResult } from '@/hooks/useUniversitySearch'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -212,13 +213,17 @@ export default function UniversityCard({ result }: { result: UniversityMatchResu
 
         {/* Match Mode: Expandable Breakdown */}
         {isMatchMode && (
-          <div className="mb-4">
+          <div className="mb-4 space-y-3">
+            {/* Radar Chart */}
+            <MatchRadarChart result={result} />
+            
+            {/* Detailed Breakdown */}
             <Accordion type="single" collapsible className="border-0">
               <AccordionItem value="breakdown" className="border-0">
                 <AccordionTrigger className="py-2 px-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 rounded-lg hover:no-underline border border-border/50">
                   <div className="flex items-center gap-2 text-sm font-semibold">
                     <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                    <span>Why This Matches You</span>
+                    <span>Detailed Scoring Breakdown</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-3 pb-0">

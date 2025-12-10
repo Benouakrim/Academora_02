@@ -25,7 +25,7 @@ type FormData = {
   excerpt: string
   categoryId: string
   content: string
-  status: 'DRAFT' | 'PUBLISHED' | 'PENDING' | 'REJECTED' | 'ARCHIVED'
+  status: 'DRAFT' | 'PUBLISHED' | 'PENDING' | 'REJECTED' | 'NEEDS_REVISION' | 'ARCHIVED'
   featuredImage: string
   metaTitle?: string
   metaDescription?: string
@@ -243,6 +243,7 @@ export default function ArticleEditorPage() {
             <SelectContent>
               <SelectItem value="DRAFT">Draft</SelectItem>
               <SelectItem value="PENDING">Pending</SelectItem>
+              <SelectItem value="NEEDS_REVISION">Needs Revision</SelectItem>
               <SelectItem value="REJECTED">Rejected</SelectItem>
               <SelectItem value="PUBLISHED">Published</SelectItem>
               <SelectItem value="ARCHIVED">Archived</SelectItem>

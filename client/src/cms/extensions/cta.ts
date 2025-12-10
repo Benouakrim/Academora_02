@@ -101,14 +101,14 @@ export const CtaExtension = Node.create({
   },
   
   addNodeView() {
-    return ReactNodeViewRenderer(CtaView as React.ComponentType);
+    return ReactNodeViewRenderer(CtaView as any);
   },
   
   addCommands() {
     return {
       setCta:
         (attributes: Record<string, unknown>) =>
-        ({ commands }: { commands: Record<string, unknown> }) => {
+        ({ commands }: { commands: any }) => {
           return commands.insertContent({
             type: this.name,
             attrs: attributes,

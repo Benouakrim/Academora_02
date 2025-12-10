@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import ImageUpload from '@/components/common/ImageUpload'
-import { useClaimRequest } from '@/hooks/useClaims'
+import { useCreateClaim } from '@/hooks/useClaims'
 import { toast } from 'sonner'
 
 // --- 1. Form Schema (Zod) ---
@@ -51,7 +51,7 @@ type ClaimRequestPayload = {
 export default function UniversityClaimPage() {
   const { id: paramId } = useParams<{ id: string }>() // Assume ID/slug could be passed here, use constant for mock data
   const [step, setStep] = useState(1)
-  const { mutate, isPending } = useClaimRequest()
+  const { mutate, isPending } = useCreateClaim()
   
   // Mock data for initial rendering context
   const mockUniversityId = 'd0c9f13c-74a9-4089-8d76-50d43715c0e2'

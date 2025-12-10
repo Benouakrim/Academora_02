@@ -101,7 +101,7 @@ export function OrganizationStep({ form }: OrganizationStepProps) {
           value={form.watch('organizationType') || ''}
           onValueChange={(value) => form.setValue('organizationType', value)}
         >
-          <SelectTrigger id="organizationType" className="h-12">
+          <SelectTrigger className="h-12">
             <SelectValue placeholder="Select organization type" />
           </SelectTrigger>
           <SelectContent>
@@ -124,7 +124,7 @@ export function OrganizationStep({ form }: OrganizationStepProps) {
           value={form.watch('size') || ''}
           onValueChange={(value) => form.setValue('size', value)}
         >
-          <SelectTrigger id="size" className="h-12">
+          <SelectTrigger className="h-12">
             <SelectValue placeholder="Select size range" />
           </SelectTrigger>
           <SelectContent>

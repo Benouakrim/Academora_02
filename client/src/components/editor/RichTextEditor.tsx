@@ -59,7 +59,9 @@ export default function RichTextEditor({
     }
 
     editor.on('update', handleUpdate)
-    return () => editor.off('update', handleUpdate)
+    return () => {
+      editor.off('update', handleUpdate)
+    }
   }, [editor, showBlockMenu])
 
   // Keyboard close

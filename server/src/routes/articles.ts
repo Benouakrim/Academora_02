@@ -10,9 +10,12 @@ const router = Router();
 // Public Routes
 router.get('/', controller.getArticles);
 router.get('/taxonomies', controller.getTaxonomies); // Combined categories/tags
-router.get('/mine/list', requireAuth, controller.getMyArticles);
+
+// Admin review workflow (MUST come before /:id routes to not be caught by param matching)
+router.get('/pending/list', requireAdmin, controller.getPendingArticles);
 
 // Protected Routes
+router.get('/mine/list', requireAuth, controller.getMyArticles);
 router.post('/', requireAuth, validate(createArticleSchema), controller.createArticle);
 router.put('/:id', requireAuth, validate(updateArticleSchema), controller.updateArticle);
 router.delete('/:id', requireAuth, controller.deleteArticle);
@@ -26,8 +29,7 @@ router.post('/:id/share', controller.shareArticle);
 // Submission workflow
 router.post('/:id/submit', requireAuth, controller.submitArticle);
 
-// Admin review workflow
-router.get('/pending/list', requireAdmin, controller.getPendingArticles);
+// Admin review workflow - approve/reject
 router.post('/:id/approve', requireAdmin, controller.approveArticle);
 router.post('/:id/reject', requireAdmin, controller.rejectArticle);
 

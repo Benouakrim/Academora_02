@@ -9,11 +9,13 @@ export const requireAdmin = async (
   next: NextFunction
 ) => {
   try {
-    const getAuth = (req as any).auth as (() => any | undefined);
-    const auth = typeof getAuth === 'function' ? getAuth() : undefined;
+    // Clerk attaches `req.auth` as an object. Some contexts may expose it as a function.
+    // Support both so authenticated admins are not treated as anonymous users.
+    const authSource = (req as any).auth as any;
+    const auth = typeof authSource === 'function' ? authSource() : authSource;
 
     console.log('[requireAdmin] Auth check:', {
-      hasAuthFn: typeof getAuth === 'function',
+      hasAuthFn: typeof authSource === 'function',
       authResult: auth,
       userId: auth?.userId
     });

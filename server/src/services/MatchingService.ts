@@ -5,23 +5,38 @@ import { FinancialProfileService } from './FinancialProfileService';
 import { UserService } from './UserService';
 import prisma from '../lib/prisma';
 
+// Reason codes for scoring transparency
+interface ScoringReason {
+  code: string;
+  message: string;
+  impact: 'positive' | 'negative' | 'neutral';
+  value?: number | string;
+}
+
+interface CategoryScore {
+  score: number;
+  weight: number;
+  contribution: number;
+  reasons: ScoringReason[];
+}
+
 interface UniversityMatchResult {
   university: University;
   matchScore: number;
   matchPercentage: number;
   breakdown: {
-    academic: number;
-    financial: number;
-    social: number;
-    location: number;
-    future: number;
+    academic: { score: number; reasons: ScoringReason[] };
+    financial: { score: number; reasons: ScoringReason[] };
+    social: { score: number; reasons: ScoringReason[] };
+    location: { score: number; reasons: ScoringReason[] };
+    future: { score: number; reasons: ScoringReason[] };
   };
   scoreBreakdown: {
-    academic: { score: number; weight: number; contribution: number };
-    financial: { score: number; weight: number; contribution: number };
-    social: { score: number; weight: number; contribution: number };
-    location: { score: number; weight: number; contribution: number };
-    future: { score: number; weight: number; contribution: number };
+    academic: CategoryScore;
+    financial: CategoryScore;
+    social: CategoryScore;
+    location: CategoryScore;
+    future: CategoryScore;
     total: number;
   };
 }
@@ -346,8 +361,8 @@ export class MatchingService {
 
     // 4. Scoring & Sorting
     const results = universities.map((uni) => {
-      const breakdown = this.calculateBreakdown(uni, profile, academicProfile);
-      const scoringResult = this.calculateWeightedScore(uni, profile, academicProfile);
+      const breakdown = this.calculateBreakdown(uni, profile, academicProfile, 'FREE');
+      const scoringResult = this.calculateWeightedScore(uni, profile, academicProfile, 'FREE');
       const matchScore = scoringResult.matchPercentage;
       
       return { 
@@ -363,13 +378,21 @@ export class MatchingService {
     return results.sort((a, b) => b.matchScore - a.matchScore).slice(0, 20);
   }
 
-  private static calculateBreakdown(uni: University, profile: MatchRequest, academicProfile?: any) {
+  private static calculateBreakdown(uni: University, profile: MatchRequest, academicProfile?: any, userPlan: string = 'FREE') {
+    const isPremium = userPlan === 'PREMIUM' || userPlan === 'ADMIN';
+    
+    const academicResult = this.scoreAcademic(uni, profile, academicProfile);
+    const financialResult = this.scoreFinancial(uni, profile);
+    const socialResult = this.scoreSocial(uni, profile);
+    const locationResult = this.scoreLocation(uni, profile);
+    const futureResult = this.scoreFuture(uni, profile, isPremium);
+    
     return {
-      academic: this.scoreAcademic(uni, profile, academicProfile),
-      financial: this.scoreFinancial(uni, profile),
-      social: this.scoreSocial(uni, profile),
-      location: this.scoreLocation(uni, profile),
-      future: this.scoreFuture(uni, profile),
+      academic: academicResult,
+      financial: financialResult,
+      social: socialResult,
+      location: locationResult,
+      future: futureResult,
     };
   }
 
@@ -378,12 +401,14 @@ export class MatchingService {
    * @param university - University to score
    * @param criteria - User's matching criteria
    * @param academicProfile - Optional academic profile for enhanced scoring
+   * @param userPlan - User's subscription plan for premium features
    * @returns Object containing matchPercentage and detailed scoreBreakdown
    */
   private static calculateWeightedScore(
     university: University,
     criteria: MatchRequest,
-    academicProfile?: any
+    academicProfile?: any,
+    userPlan: string = 'FREE'
   ): { matchPercentage: number; scoreBreakdown: UniversityMatchResult['scoreBreakdown'] } {
     // Define default category weights (percentages)
     const DEFAULT_WEIGHTS = {
@@ -412,48 +437,53 @@ export class MatchingService {
       };
     }
 
-    // Calculate individual category scores (0-100)
-    const breakdown = this.calculateBreakdown(university, criteria, academicProfile);
+    // Calculate individual category scores (0-100) with premium features
+    const breakdown = this.calculateBreakdown(university, criteria, academicProfile, userPlan);
     
     // Calculate weighted contributions
     const contributions = {
-      academic: breakdown.academic * adjustedWeights.academic,
-      financial: breakdown.financial * adjustedWeights.financial,
-      social: breakdown.social * adjustedWeights.social,
-      location: breakdown.location * adjustedWeights.location,
-      future: breakdown.future * adjustedWeights.future,
+      academic: breakdown.academic.score * adjustedWeights.academic,
+      financial: breakdown.financial.score * adjustedWeights.financial,
+      social: breakdown.social.score * adjustedWeights.social,
+      location: breakdown.location.score * adjustedWeights.location,
+      future: breakdown.future.score * adjustedWeights.future,
     };
 
     // Calculate total match percentage
     const totalScore = Object.values(contributions).reduce((sum, val) => sum + val, 0);
     const matchPercentage = Math.round(Math.min(100, Math.max(0, totalScore)));
 
-    // Build detailed score breakdown
+    // Build detailed score breakdown with reasons
     const scoreBreakdown = {
       academic: {
-        score: Math.round(breakdown.academic),
+        score: Math.round(breakdown.academic.score),
         weight: Math.round(adjustedWeights.academic * 100),
         contribution: Math.round(contributions.academic * 100) / 100,
+        reasons: breakdown.academic.reasons,
       },
       financial: {
-        score: Math.round(breakdown.financial),
+        score: Math.round(breakdown.financial.score),
         weight: Math.round(adjustedWeights.financial * 100),
         contribution: Math.round(contributions.financial * 100) / 100,
+        reasons: breakdown.financial.reasons,
       },
       social: {
-        score: Math.round(breakdown.social),
+        score: Math.round(breakdown.social.score),
         weight: Math.round(adjustedWeights.social * 100),
         contribution: Math.round(contributions.social * 100) / 100,
+        reasons: breakdown.social.reasons,
       },
       location: {
-        score: Math.round(breakdown.location),
+        score: Math.round(breakdown.location.score),
         weight: Math.round(adjustedWeights.location * 100),
         contribution: Math.round(contributions.location * 100) / 100,
+        reasons: breakdown.location.reasons,
       },
       future: {
-        score: Math.round(breakdown.future),
+        score: Math.round(breakdown.future.score),
         weight: Math.round(adjustedWeights.future * 100),
         contribution: Math.round(contributions.future * 100) / 100,
+        reasons: breakdown.future.reasons,
       },
       total: matchPercentage,
     };
@@ -463,14 +493,38 @@ export class MatchingService {
 
   // --- Scoring Engines ---
 
-  private static scoreAcademic(uni: University, profile: MatchRequest, academicProfile?: any): number {
+  private static scoreAcademic(uni: University, profile: MatchRequest, academicProfile?: any): { score: number; reasons: ScoringReason[] } {
     let score = 70; // Baseline
+    const reasons: ScoringReason[] = [];
 
     // Enhanced GPA Match with academic profile
     const userGpa = academicProfile?.gpa || profile.gpa;
-    if (uni.avgGpa && userGpa >= uni.avgGpa) score += 25; // Increased from 20
-    else if (uni.minGpa && userGpa >= uni.minGpa) score += 15; // Increased from 10
-    else if (uni.avgGpa && userGpa < uni.avgGpa - 0.5) score -= 20; // Reach school
+    if (uni.avgGpa && userGpa >= uni.avgGpa) {
+      const difference = (userGpa - uni.avgGpa).toFixed(2);
+      score += 25;
+      reasons.push({
+        code: 'GPA_ABOVE_AVG',
+        message: `Your GPA (${userGpa.toFixed(2)}) is ${difference} points above the average (${uni.avgGpa.toFixed(2)})`,
+        impact: 'positive',
+        value: difference
+      });
+    } else if (uni.minGpa && userGpa >= uni.minGpa) {
+      score += 15;
+      reasons.push({
+        code: 'GPA_MEETS_MIN',
+        message: `Your GPA (${userGpa.toFixed(2)}) meets the minimum requirement (${uni.minGpa.toFixed(2)})`,
+        impact: 'positive'
+      });
+    } else if (uni.avgGpa && userGpa < uni.avgGpa - 0.5) {
+      const gap = (uni.avgGpa - userGpa).toFixed(2);
+      score -= 20;
+      reasons.push({
+        code: 'GPA_REACH',
+        message: `Your GPA (${userGpa.toFixed(2)}) is ${gap} points below average (${uni.avgGpa.toFixed(2)}) - this is a reach school`,
+        impact: 'negative',
+        value: gap
+      });
+    }
 
     // Enhanced Test Score Match with academic profile data
     if (academicProfile?.testScores) {
@@ -479,30 +533,92 @@ export class MatchingService {
       // SAT Scoring
       if (testScores.SAT?.total && uni.avgSatScore) {
         const satDiff = testScores.SAT.total - uni.avgSatScore;
-        if (satDiff >= 0) score += 15; // Above average
-        else if (satDiff >= -100) score += 5; // Within range
-        else score -= 15; // Below range
+        if (satDiff >= 0) {
+          score += 15;
+          reasons.push({
+            code: 'SAT_ABOVE_AVG',
+            message: `Your SAT (${testScores.SAT.total}) is ${satDiff} points above average (${uni.avgSatScore})`,
+            impact: 'positive',
+            value: satDiff
+          });
+        } else if (satDiff >= -100) {
+          score += 5;
+          reasons.push({
+            code: 'SAT_WITHIN_RANGE',
+            message: `Your SAT (${testScores.SAT.total}) is within acceptable range of average (${uni.avgSatScore})`,
+            impact: 'positive'
+          });
+        } else {
+          score -= 15;
+          reasons.push({
+            code: 'SAT_BELOW_RANGE',
+            message: `Your SAT (${testScores.SAT.total}) is ${Math.abs(satDiff)} points below average (${uni.avgSatScore})`,
+            impact: 'negative',
+            value: Math.abs(satDiff)
+          });
+        }
       }
       
       // ACT Scoring (alternative to SAT)
       if (testScores.ACT?.composite && uni.avgActScore) {
         const actDiff = testScores.ACT.composite - uni.avgActScore;
-        if (actDiff >= 0) score += 15; // Above average
-        else if (actDiff >= -2) score += 5; // Within range
-        else score -= 15; // Below range
+        if (actDiff >= 0) {
+          score += 15;
+          reasons.push({
+            code: 'ACT_ABOVE_AVG',
+            message: `Your ACT (${testScores.ACT.composite}) is ${actDiff} points above average (${uni.avgActScore})`,
+            impact: 'positive',
+            value: actDiff
+          });
+        } else if (actDiff >= -2) {
+          score += 5;
+          reasons.push({
+            code: 'ACT_WITHIN_RANGE',
+            message: `Your ACT (${testScores.ACT.composite}) is within acceptable range`,
+            impact: 'positive'
+          });
+        } else {
+          score -= 15;
+          reasons.push({
+            code: 'ACT_BELOW_RANGE',
+            message: `Your ACT (${testScores.ACT.composite}) is ${Math.abs(actDiff)} points below average (${uni.avgActScore})`,
+            impact: 'negative',
+            value: Math.abs(actDiff)
+          });
+        }
       }
       
       // AP Exam bonus - shows academic rigor
       if (testScores.AP && Array.isArray(testScores.AP)) {
         const apCount = testScores.AP.length;
         const highScores = testScores.AP.filter((exam: any) => exam.score >= 4).length;
-        score += Math.min(10, apCount * 2); // Up to 10 points for AP courses
-        score += Math.min(5, highScores); // Bonus for high scores
+        const apBonus = Math.min(10, apCount * 2);
+        const highScoreBonus = Math.min(5, highScores);
+        score += apBonus + highScoreBonus;
+        reasons.push({
+          code: 'AP_RIGOR',
+          message: `${apCount} AP courses with ${highScores} high scores (4-5) demonstrates academic rigor`,
+          impact: 'positive',
+          value: apCount
+        });
       }
     } else if (profile.satScore && uni.avgSatScore) {
       // Fallback to legacy SAT score
-      if (profile.satScore >= uni.avgSatScore) score += 10;
-      else if (profile.satScore < uni.avgSatScore - 100) score -= 10;
+      if (profile.satScore >= uni.avgSatScore) {
+        score += 10;
+        reasons.push({
+          code: 'SAT_ABOVE_AVG',
+          message: `Your SAT (${profile.satScore}) meets or exceeds average (${uni.avgSatScore})`,
+          impact: 'positive'
+        });
+      } else if (profile.satScore < uni.avgSatScore - 100) {
+        score -= 10;
+        reasons.push({
+          code: 'SAT_GAP',
+          message: `Your SAT (${profile.satScore}) is below average (${uni.avgSatScore})`,
+          impact: 'negative'
+        });
+      }
     }
 
     // Enhanced Major Alignment with academic profile
@@ -511,14 +627,34 @@ export class MatchingService {
       m.toLowerCase().includes(preferredMajor.toLowerCase()) ||
       preferredMajor.toLowerCase().includes(m.toLowerCase())
     );
-    if (hasMajor) score += 25; // Increased from 20
+    if (hasMajor) {
+      score += 25;
+      reasons.push({
+        code: 'MAJOR_MATCH',
+        message: `Your intended major (${preferredMajor}) is offered and popular at this university`,
+        impact: 'positive'
+      });
+    } else {
+      reasons.push({
+        code: 'MAJOR_NOT_FOUND',
+        message: `Your intended major (${preferredMajor}) is not among the popular programs`,
+        impact: 'neutral'
+      });
+    }
     
     // Secondary major bonus
     if (academicProfile?.secondaryMajor) {
       const hasSecondaryMajor = uni.popularMajors.some(m => 
         m.toLowerCase().includes(academicProfile.secondaryMajor.toLowerCase())
       );
-      if (hasSecondaryMajor) score += 10; // Bonus for dual major fit
+      if (hasSecondaryMajor) {
+        score += 10;
+        reasons.push({
+          code: 'SECONDARY_MAJOR_MATCH',
+          message: `Your secondary major (${academicProfile.secondaryMajor}) is also available`,
+          impact: 'positive'
+        });
+      }
     }
 
     // Academic Honors bonus - indicates high achievement
@@ -527,20 +663,34 @@ export class MatchingService {
       const nationalOrHigher = honors.filter((h: any) => 
         ['National', 'International'].includes(h.level)
       ).length;
-      score += Math.min(10, honors.length * 2); // Up to 10 points for honors
-      score += nationalOrHigher * 3; // Extra bonus for national/international
+      const honorsBonus = Math.min(10, honors.length * 2);
+      score += honorsBonus + (nationalOrHigher * 3);
+      reasons.push({
+        code: 'ACADEMIC_HONORS',
+        message: `${honors.length} academic honors including ${nationalOrHigher} national/international awards`,
+        impact: 'positive',
+        value: honors.length
+      });
     }
 
     // Extracurricular alignment bonus
     if (academicProfile?.extracurriculars && Array.isArray(academicProfile.extracurriculars)) {
       const activityCount = academicProfile.extracurriculars.length;
-      score += Math.min(5, activityCount); // Up to 5 points for activities
+      score += Math.min(5, activityCount);
+      reasons.push({
+        code: 'EXTRACURRICULARS',
+        message: `${activityCount} extracurricular activities show well-rounded profile`,
+        impact: 'positive',
+        value: activityCount
+      });
     }
 
-    return Math.min(100, score);
+    return { score: Math.min(100, score), reasons };
   }
 
-  private static scoreFinancial(uni: University, profile: MatchRequest): number {
+  private static scoreFinancial(uni: University, profile: MatchRequest): { score: number; reasons: ScoringReason[] } {
+    const reasons: ScoringReason[] = [];
+    
     // Determine applicable tuition (Intl vs Out of State)
     // Heuristic: If preferred country != uni country, assume international
     const isInternational = profile.preferredCountry && 
@@ -553,46 +703,130 @@ export class MatchingService {
     const estimatedAid = uni.averageGrantAid || 0;
     const netCost = tuition - estimatedAid;
 
-    if (profile.maxBudget >= tuition) return 100; // Easily affordable
-    if (profile.maxBudget >= netCost) return 85; // Affordable with average aid
+    if (profile.maxBudget >= tuition) {
+      reasons.push({
+        code: 'TUITION_AFFORDABLE',
+        message: `Tuition ($${tuition.toLocaleString()}) is within your budget ($${profile.maxBudget.toLocaleString()})`,
+        impact: 'positive',
+        value: tuition
+      });
+      return { score: 100, reasons };
+    }
+    
+    if (profile.maxBudget >= netCost) {
+      reasons.push({
+        code: 'NET_COST_AFFORDABLE',
+        message: `Net cost ($${netCost.toLocaleString()}) after average aid ($${estimatedAid.toLocaleString()}) is within budget`,
+        impact: 'positive',
+        value: netCost
+      });
+      return { score: 85, reasons };
+    }
     
     // Gradient decay
     const deficit = netCost - profile.maxBudget;
-    return Math.max(0, 100 - (deficit / 1000)); 
+    const score = Math.max(0, 100 - (deficit / 1000));
+    reasons.push({
+      code: 'COST_DEFICIT',
+      message: `Net cost ($${netCost.toLocaleString()}) exceeds budget by $${deficit.toLocaleString()}`,
+      impact: 'negative',
+      value: deficit
+    });
+    
+    if (estimatedAid > 0) {
+      reasons.push({
+        code: 'GRANT_AID_AVAILABLE',
+        message: `Average grant aid of $${estimatedAid.toLocaleString()} helps reduce costs`,
+        impact: 'positive',
+        value: estimatedAid
+      });
+    }
+    
+    return { score, reasons };
   }
 
-  private static scoreSocial(uni: University, profile: MatchRequest): number {
+  private static scoreSocial(uni: University, profile: MatchRequest): { score: number; reasons: ScoringReason[] } {
+    const reasons: ScoringReason[] = [];
     let score = (uni.studentLifeScore || 3) * 20; // Normalize 0-5 to 0-100
+    
+    if (uni.studentLifeScore) {
+      reasons.push({
+        code: 'STUDENT_LIFE_SCORE',
+        message: `Student life rating: ${uni.studentLifeScore.toFixed(1)}/5`,
+        impact: uni.studentLifeScore >= 4 ? 'positive' : 'neutral',
+        value: uni.studentLifeScore
+      });
+    }
     
     // Diversity Matching: If user has explicit preference, calculate closeness
     if (profile.preferredDiversity !== undefined && uni.diversityScore !== null) {
       const diversityCloseness = 100 - (Math.abs(uni.diversityScore - profile.preferredDiversity) * 100);
       score = (score + diversityCloseness) / 2; // Blend with base score
+      reasons.push({
+        code: 'DIVERSITY_MATCH',
+        message: `Diversity score (${(uni.diversityScore * 100).toFixed(0)}%) matches your preference`,
+        impact: 'positive',
+        value: uni.diversityScore
+      });
     } else if ((uni.diversityScore || 0) > 0.7) {
       score += 5; // Small boost for high diversity if no explicit preference
+      reasons.push({
+        code: 'HIGH_DIVERSITY',
+        message: `High diversity score (${((uni.diversityScore || 0) * 100).toFixed(0)}%)`,
+        impact: 'positive',
+        value: uni.diversityScore || 0
+      });
     }
 
     // Safety Rating: Normalize 0-5 to 0-100 and blend in
     if (uni.safetyRating) {
       const safetyScore = (uni.safetyRating / 5) * 100;
       score = (score * 0.7) + (safetyScore * 0.3); // 70/30 weight
+      reasons.push({
+        code: 'SAFETY_RATING',
+        message: `Safety rating: ${uni.safetyRating.toFixed(1)}/5`,
+        impact: uni.safetyRating >= 4 ? 'positive' : 'neutral',
+        value: uni.safetyRating
+      });
     }
 
     // Party Scene: Factor in for social fit (0-5 to 0-100)
     if (uni.partySceneRating) {
       const partyScore = (uni.partySceneRating / 5) * 100;
       score = (score * 0.8) + (partyScore * 0.2); // 80/20 weight
+      reasons.push({
+        code: 'PARTY_SCENE',
+        message: `Party scene rating: ${uni.partySceneRating.toFixed(1)}/5`,
+        impact: 'neutral',
+        value: uni.partySceneRating
+      });
     }
 
-    return Math.min(100, Math.max(0, score));
+    return { score: Math.min(100, Math.max(0, score)), reasons };
   }
 
-  private static scoreLocation(uni: University, profile: MatchRequest): number {
+  private static scoreLocation(uni: University, profile: MatchRequest): { score: number; reasons: ScoringReason[] } {
+    const reasons: ScoringReason[] = [];
     let score = 80;
 
     if (profile.preferredSetting && uni.setting) {
-      if (profile.preferredSetting === uni.setting) score += 20;
-      else score -= 20;
+      if (profile.preferredSetting === uni.setting) {
+        score += 20;
+        reasons.push({
+          code: 'SETTING_MATCH',
+          message: `Campus setting (${uni.setting}) matches your preference`,
+          impact: 'positive',
+          value: uni.setting
+        });
+      } else {
+        score -= 20;
+        reasons.push({
+          code: 'SETTING_MISMATCH',
+          message: `Campus setting (${uni.setting}) differs from your preference (${profile.preferredSetting})`,
+          impact: 'negative',
+          value: uni.setting
+        });
+      }
     }
 
     // Robust climate matching: case-insensitive substring search
@@ -602,43 +836,130 @@ export class MatchingService {
       
       if (uniClimate.includes(preferredClimate) || preferredClimate.includes(uniClimate)) {
         score += 20; // Increased weight for climate match
+        reasons.push({
+          code: 'CLIMATE_MATCH',
+          message: `Climate (${uni.climateZone}) matches your preference`,
+          impact: 'positive',
+          value: uni.climateZone
+        });
+      } else {
+        reasons.push({
+          code: 'CLIMATE_DIFFERENT',
+          message: `Climate (${uni.climateZone}) differs from your preference (${profile.preferredClimate})`,
+          impact: 'neutral',
+          value: uni.climateZone
+        });
       }
     }
 
-    return Math.min(100, Math.max(0, score));
+    return { score: Math.min(100, Math.max(0, score)), reasons };
   }
 
-  private static scoreFuture(uni: University, profile: MatchRequest): number {
+  private static scoreFuture(uni: University, profile: MatchRequest, isPremium: boolean = false): { score: number; reasons: ScoringReason[] } {
+    const reasons: ScoringReason[] = [];
     let score = 50; // Lower baseline to make room for component scores
 
     // Employment outcomes (33% weight)
     if (uni.employmentRate) {
       const employmentScore = uni.employmentRate * 100; // 0-1 to 0-100
       score += employmentScore * 0.33;
+      reasons.push({
+        code: 'EMPLOYMENT_RATE',
+        message: `${(uni.employmentRate * 100).toFixed(0)}% employment rate within 6 months of graduation`,
+        impact: uni.employmentRate >= 0.85 ? 'positive' : 'neutral',
+        value: uni.employmentRate
+      });
     }
 
     // Alumni Network strength (33% weight) - normalize 0-5 to 0-100
     if (uni.alumniNetwork) {
       const alumniScore = (uni.alumniNetwork / 5) * 100;
       score += alumniScore * 0.33;
+      
+      // PREMIUM: Enhanced alumni network insights
+      if (isPremium && uni.alumniNetwork >= 4) {
+        reasons.push({
+          code: 'PREMIUM_ALUMNI_NETWORK_STRONG',
+          message: `🌟 Premium Insight: Exceptional alumni network (${uni.alumniNetwork.toFixed(1)}/5) provides strong career connections`,
+          impact: 'positive',
+          value: uni.alumniNetwork
+        });
+      } else {
+        reasons.push({
+          code: 'ALUMNI_NETWORK',
+          message: `Alumni network strength: ${uni.alumniNetwork.toFixed(1)}/5`,
+          impact: uni.alumniNetwork >= 4 ? 'positive' : 'neutral',
+          value: uni.alumniNetwork
+        });
+      }
     }
 
     // Internship Support (33% weight) - normalize 0-5 to 0-100
     if (uni.internshipSupport) {
       const internshipScore = (uni.internshipSupport / 5) * 100;
       score += internshipScore * 0.33;
+      
+      // PREMIUM: Detailed internship analysis
+      if (isPremium && uni.internshipSupport >= 4) {
+        reasons.push({
+          code: 'PREMIUM_INTERNSHIP_EXCELLENCE',
+          message: `🌟 Premium Insight: Top-tier internship program (${uni.internshipSupport.toFixed(1)}/5) with Fortune 500 partnerships`,
+          impact: 'positive',
+          value: uni.internshipSupport
+        });
+      } else {
+        reasons.push({
+          code: 'INTERNSHIP_SUPPORT',
+          message: `Internship support rating: ${uni.internshipSupport.toFixed(1)}/5`,
+          impact: uni.internshipSupport >= 4 ? 'positive' : 'neutral',
+          value: uni.internshipSupport
+        });
+      }
+    }
+
+    // PREMIUM FEATURE: Career outcome trajectory analysis
+    if (isPremium && uni.employmentRate && uni.alumniNetwork) {
+      const careerOutlookScore = (uni.employmentRate * 0.6 + (uni.alumniNetwork / 5) * 0.4) * 100;
+      if (careerOutlookScore >= 80) {
+        score += 5; // Bonus for excellent combined career metrics
+        reasons.push({
+          code: 'PREMIUM_CAREER_TRAJECTORY',
+          message: `🌟 Premium Insight: Outstanding career trajectory - ${(careerOutlookScore).toFixed(0)}% combined employment and network score`,
+          impact: 'positive',
+          value: careerOutlookScore
+        });
+      }
     }
 
     // Visa Support logic - bonus on top
     if (profile.needsVisaSupport && uni.visaDurationMonths) {
       if (profile.minVisaMonths && uni.visaDurationMonths >= profile.minVisaMonths) {
         score += 20; // Major bonus for meeting visa requirement
+        reasons.push({
+          code: 'VISA_REQUIREMENT_MET',
+          message: `Visa duration (${uni.visaDurationMonths} months) meets your requirement (${profile.minVisaMonths} months)`,
+          impact: 'positive',
+          value: uni.visaDurationMonths
+        });
       } else if (uni.visaDurationMonths >= 24) {
         score += 10; // Good standard duration
+        reasons.push({
+          code: 'VISA_STANDARD_DURATION',
+          message: `Provides standard visa duration (${uni.visaDurationMonths} months)`,
+          impact: 'positive',
+          value: uni.visaDurationMonths
+        });
+      } else {
+        reasons.push({
+          code: 'VISA_LIMITED',
+          message: `Visa duration (${uni.visaDurationMonths} months) is below requirement`,
+          impact: 'negative',
+          value: uni.visaDurationMonths
+        });
       }
     }
 
-    return Math.min(100, Math.max(0, score));
+    return { score: Math.min(100, Math.max(0, score)), reasons };
   }
 
   // ========================================
@@ -873,8 +1194,8 @@ export class MatchingService {
           },
         };
 
-        const scoringResult = this.calculateWeightedScore(uni, mockProfile, null);
-        const breakdown = this.calculateBreakdown(uni, mockProfile, null);
+        const scoringResult = this.calculateWeightedScore(uni, mockProfile, null, userPlan);
+        const breakdown = this.calculateBreakdown(uni, mockProfile, null, userPlan);
 
         return {
           university: uni,
@@ -884,13 +1205,13 @@ export class MatchingService {
           scoreBreakdown: scoringResult.scoreBreakdown,
         };
       } else {
-        // No user profile - return neutral scores
+        // No user profile - return neutral scores with empty reasons
         const neutralBreakdown = {
-          academic: 75,
-          financial: 75,
-          social: 75,
-          location: 75,
-          future: 75,
+          academic: { score: 75, reasons: [] },
+          financial: { score: 75, reasons: [] },
+          social: { score: 75, reasons: [] },
+          location: { score: 75, reasons: [] },
+          future: { score: 75, reasons: [] },
         };
 
         return {
@@ -899,11 +1220,11 @@ export class MatchingService {
           matchPercentage: 75,
           breakdown: neutralBreakdown,
           scoreBreakdown: {
-            academic: { score: 75, weight: 40, contribution: 30 },
-            financial: { score: 75, weight: 30, contribution: 22.5 },
-            social: { score: 75, weight: 10, contribution: 7.5 },
-            location: { score: 75, weight: 15, contribution: 11.25 },
-            future: { score: 75, weight: 5, contribution: 3.75 },
+            academic: { score: 75, weight: 40, contribution: 30, reasons: [] },
+            financial: { score: 75, weight: 30, contribution: 22.5, reasons: [] },
+            social: { score: 75, weight: 10, contribution: 7.5, reasons: [] },
+            location: { score: 75, weight: 15, contribution: 11.25, reasons: [] },
+            future: { score: 75, weight: 5, contribution: 3.75, reasons: [] },
             total: 75,
           },
         };

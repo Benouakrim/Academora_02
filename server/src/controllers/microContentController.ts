@@ -62,11 +62,18 @@ export const getOne = async (req: Request, res: Response, next: NextFunction) =>
 // POST / - Create new micro-content
 export const create = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { universityId, category, title, content, priority } = req.body;
+    const { universityId, blockType, title, data, priority, category, content } = req.body;
 
-    // Validate required fields
-    if (!universityId || !category || !title || !content) {
-      return next(new AppError(400, 'University ID, category, title, and content are required'));
+    // Support both old format (category/content) and new format (blockType/data)
+    const isNewFormat = blockType && data;
+    const isOldFormat = category && content;
+
+    if (!universityId || !title) {
+      return next(new AppError(400, 'University ID and title are required'));
+    }
+
+    if (!isNewFormat && !isOldFormat) {
+      return next(new AppError(400, 'Either (blockType and data) or (category and content) are required'));
     }
 
     // Verify university exists
@@ -81,10 +88,12 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
     const microContent = await prisma.microContent.create({
       data: {
         universityId,
-        category,
+        blockType: blockType || 'rich_text_block',
         title,
-        content,
-        priority: priority || 0
+        data: isNewFormat ? data : { content, format: 'html' },
+        priority: priority || 0,
+        category: category || null,
+        content: content || null, // Backward compatibility
       }
     });
 
@@ -98,7 +107,7 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
 export const update = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { category, title, content, priority } = req.body;
+    const { blockType, title, data, priority, category, content } = req.body;
 
     // Check if micro-content exists
     const existing = await prisma.microContent.findUnique({
@@ -112,10 +121,12 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
     const microContent = await prisma.microContent.update({
       where: { id },
       data: {
-        category: category !== undefined ? category : existing.category,
+        blockType: blockType !== undefined ? blockType : existing.blockType,
         title: title !== undefined ? title : existing.title,
+        data: data !== undefined ? data : existing.data,
+        priority: priority !== undefined ? priority : existing.priority,
+        category: category !== undefined ? category : existing.category,
         content: content !== undefined ? content : existing.content,
-        priority: priority !== undefined ? priority : existing.priority
       }
     });
 

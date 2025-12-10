@@ -89,14 +89,14 @@ export const TimelineExtension = Node.create({
   },
   
   addNodeView() {
-    return ReactNodeViewRenderer(TimelineView as React.ComponentType);
+    return ReactNodeViewRenderer(TimelineView as any);
   },
   
   addCommands() {
     return {
       setTimeline:
         (attributes: Record<string, unknown>) =>
-        ({ commands }: { commands: Record<string, unknown> }) => {
+        ({ commands }: { commands: any }) => {
           return commands.insertContent({
             type: this.name,
             attrs: attributes,

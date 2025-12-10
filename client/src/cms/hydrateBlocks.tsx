@@ -114,26 +114,26 @@ export function observeAndHydrateBlocks(container: HTMLElement = document.body):
 /**
  * Gets the appropriate renderer component for a block type
  */
-function getRendererComponent(blockType: string | null): React.ComponentType<{ attrs: Record<string, unknown>; blockId: string }> | null {
+function getRendererComponent(blockType: string | null): any {
   switch (blockType) {
     case 'checklist':
-      return RenderChecklist;
+      return RenderChecklist as any;
     case 'quiz':
-      return RenderQuiz;
+      return RenderQuiz as any;
     case 'timeline':
-      return RenderTimeline;
+      return RenderTimeline as any;
     case 'stepGuide':
-      return RenderStepGuide;
+      return RenderStepGuide as any;
     case 'collapsible':
-      return RenderCollapsible;
+      return RenderCollapsible as any;
     case 'tabs':
-      return RenderTabs;
+      return RenderTabs as any;
     case 'comparison':
-      return RenderComparison;
+      return RenderComparison as any;
     case 'calculator':
-      return RenderCalculator;
+      return RenderCalculator as any;
     case 'cta':
-      return RenderCta;
+      return RenderCta as any;
     default:
       return null;
   }

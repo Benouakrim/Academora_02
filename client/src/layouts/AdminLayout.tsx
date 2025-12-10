@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, School, FileText, MessageSquare, Activity, Shield, LogOut, ShieldCheck, Layers, Users, Gift, Image } from 'lucide-react'
+import { LayoutDashboard, School, FileText, MessageSquare, Activity, Shield, LogOut, ShieldCheck, Layers, Users, Gift, Image, Clock, BarChart3 } from 'lucide-react'
 import useAdmin from '@/hooks/useAdmin'
 import { Button } from '@/components/ui/button'
 import Navbar from '@/components/layout/Navbar'
@@ -15,6 +15,7 @@ export default function AdminLayout() {
     { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
     { to: '/admin/universities', label: 'Universities', icon: School },
     { to: '/admin/articles', label: 'Articles', icon: FileText },
+    { to: '/admin/articles/pending', label: 'Pending Articles', icon: Clock },
     { to: '/admin/media', label: 'Media Library', icon: Image },
     { to: '/admin/reviews', label: 'Reviews', icon: MessageSquare },
     { to: '/admin/claims', label: 'Claims', icon: ShieldCheck },
@@ -22,6 +23,7 @@ export default function AdminLayout() {
     { to: '/admin/referrals', label: 'Referrals', icon: Gift },
     { to: '/admin/micro-content', label: 'Micro-Content', icon: Layers },
     { to: '/admin/health', label: 'System Health', icon: Activity },
+    { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
   ]
 
   return (

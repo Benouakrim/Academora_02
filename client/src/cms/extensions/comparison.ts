@@ -100,14 +100,14 @@ export const ComparisonExtension = Node.create({
   },
   
   addNodeView() {
-    return ReactNodeViewRenderer(ComparisonView as React.ComponentType);
+    return ReactNodeViewRenderer(ComparisonView as any);
   },
   
   addCommands() {
     return {
       setComparison:
         (attributes: Record<string, unknown>) =>
-        ({ commands }: { commands: Record<string, unknown> }) => {
+        ({ commands }: { commands: any }) => {
           return commands.insertContent({
             type: this.name,
             attrs: attributes,

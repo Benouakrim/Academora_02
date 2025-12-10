@@ -92,14 +92,14 @@ export const QuizExtension = Node.create({
   },
   
   addNodeView() {
-    return ReactNodeViewRenderer(QuizView as React.ComponentType);
+    return ReactNodeViewRenderer(QuizView as any);
   },
   
   addCommands() {
     return {
       setQuiz:
         (attributes: Record<string, unknown>) =>
-        ({ commands }: { commands: Record<string, unknown> }) => {
+        ({ commands }: { commands: any }) => {
           return commands.insertContent({
             type: this.name,
             attrs: attributes,

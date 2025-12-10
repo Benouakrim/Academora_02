@@ -1,6 +1,6 @@
-import { GraduationCap, DollarSign, MapPin, Heart, Briefcase, Check, AlertCircle } from 'lucide-react';
+import { GraduationCap, DollarSign, MapPin, Heart, Briefcase, Check, AlertCircle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { UniversityMatchResult } from '@/hooks/useUniversitySearch';
+import type { UniversityMatchResult, ScoringReason } from '@/hooks/useUniversitySearch';
 
 interface MatchBreakdownPanelProps {
   result: UniversityMatchResult;
@@ -49,71 +49,32 @@ const getBarColor = (score: number): string => {
   return 'from-red-400 to-red-600';
 };
 
-const getReasons = (
-  category: keyof typeof CATEGORY_CONFIG,
-  score: number,
-  university: UniversityMatchResult['university']
-): { text: string; type: 'success' | 'warning' }[] => {
-  // This is a simplified version - in production, this would come from backend
-  const reasons: { text: string; type: 'success' | 'warning' }[] = [];
-  
-  if (category === 'academic') {
-    if (score >= 80) {
-      reasons.push({ text: 'Your qualifications exceed requirements', type: 'success' });
-      reasons.push({ text: 'Strong fit for your intended major', type: 'success' });
-    } else if (score >= 60) {
-      reasons.push({ text: 'Your profile meets core requirements', type: 'success' });
-    } else {
-      reasons.push({ text: 'Requirements may be challenging', type: 'warning' });
-    }
+const getReasonIcon = (impact: 'positive' | 'negative' | 'neutral') => {
+  switch (impact) {
+    case 'positive':
+      return <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />;
+    case 'negative':
+      return <AlertCircle className="h-3 w-3 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />;
+    case 'neutral':
+      return <Info className="h-3 w-3 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />;
   }
-  
-  if (category === 'financial') {
-    if (score >= 80) {
-      reasons.push({ text: 'Tuition within your budget range', type: 'success' });
-      reasons.push({ text: 'Strong financial aid available', type: 'success' });
-    } else if (score >= 60) {
-      reasons.push({ text: 'Affordable with financial aid', type: 'success' });
-    } else {
-      reasons.push({ text: 'Higher cost than your budget', type: 'warning' });
-    }
+};
+
+const getReasonTextColor = (impact: 'positive' | 'negative' | 'neutral'): string => {
+  switch (impact) {
+    case 'positive':
+      return 'text-foreground/80';
+    case 'negative':
+      return 'text-amber-700 dark:text-amber-300';
+    case 'neutral':
+      return 'text-blue-700 dark:text-blue-300';
   }
-  
-  if (category === 'location') {
-    if (score >= 80) {
-      reasons.push({ text: 'Matches your location preferences', type: 'success' });
-      reasons.push({ text: 'Good safety and climate ratings', type: 'success' });
-    } else if (score < 60) {
-      reasons.push({ text: 'Different setting than preferred', type: 'warning' });
-    }
-  }
-  
-  if (category === 'social') {
-    if (score >= 70) {
-      reasons.push({ text: 'Vibrant campus life and community', type: 'success' });
-      reasons.push({ text: 'Strong diversity and inclusion', type: 'success' });
-    }
-  }
-  
-  if (category === 'future') {
-    if (score >= 80) {
-      if (university.employmentRate && university.employmentRate > 0.9) {
-        reasons.push({ text: `${Math.round(university.employmentRate * 100)}% employment rate`, type: 'success' });
-      }
-      reasons.push({ text: 'Top alumni network in your field', type: 'success' });
-      reasons.push({ text: 'Strong internship programs', type: 'success' });
-    } else if (score >= 60) {
-      reasons.push({ text: 'Good career support services', type: 'success' });
-    }
-  }
-  
-  return reasons;
 };
 
 /**
  * MatchBreakdownPanel Component
  * Detailed visualization of match score breakdown by category
- * Shows scores, contributions, and specific reasons
+ * Shows scores, contributions, and specific reasons from backend
  */
 export default function MatchBreakdownPanel({ result, isExpanded = true }: MatchBreakdownPanelProps) {
   if (!isExpanded) return null;
@@ -134,7 +95,7 @@ export default function MatchBreakdownPanel({ result, isExpanded = true }: Match
           const breakdown = result.scoreBreakdown[category];
           const score = breakdown.score;
           const contribution = breakdown.contribution;
-          const reasons = getReasons(category, score, result.university);
+          const reasons = breakdown.reasons || []; // Use real reasons from backend
 
           return (
             <div key={category} className="space-y-2">
@@ -182,23 +143,17 @@ export default function MatchBreakdownPanel({ result, isExpanded = true }: Match
                 />
               </div>
 
-              {/* Reasons */}
+              {/* Reasons from Backend */}
               {reasons.length > 0 && (
                 <div className="space-y-1 ml-7">
                   {reasons.map((reason, idx) => (
                     <div key={idx} className="flex items-start gap-1.5">
-                      {reason.type === 'success' ? (
-                        <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-                      ) : (
-                        <AlertCircle className="h-3 w-3 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                      )}
+                      {getReasonIcon(reason.impact)}
                       <span className={cn(
                         'text-xs leading-relaxed',
-                        reason.type === 'success' 
-                          ? 'text-foreground/80' 
-                          : 'text-amber-700 dark:text-amber-300'
+                        getReasonTextColor(reason.impact)
                       )}>
-                        {reason.text}
+                        {reason.message}
                       </span>
                     </div>
                   ))}

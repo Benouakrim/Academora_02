@@ -369,6 +369,8 @@ model Article {
   reviewedAt      DateTime?
   reviewedById    String?
   shareCount      Int                 @default(0)
+  rejectionCount  Int                 @default(0)
+  scheduledForDeletion DateTime?
   author          User                @relation("ArticleAuthor", fields: [authorId], references: [id])
   category        Category?           @relation(fields: [categoryId], references: [id])
   reviewedBy      User?               @relation("ArticleReviewer", fields: [reviewedById], references: [id])
@@ -464,6 +466,83 @@ model UniversityGroup {
   updatedAt    DateTime          @updatedAt
   claimedAt    DateTime?
   claimedById  String?
+  
+  // A. Identity & Overview
+  groupType                  String?              // Public, Private, Semi-public
+  city                       String?
+  region                     String?
+  yearFounded                Int?
+  governanceStructure        String?
+  numberOfCampuses           Int?
+  totalStudentPopulation     Int?
+  totalStaffCount            Int?
+  
+  // B. Academics & Programs Offered
+  fieldsOfStudy              String[]             // Sciences, Business, Law, etc.
+  levelCoverage              String[]             // Licence/Bachelor, Master, Doctorat
+  signaturePrograms          String[]
+  accreditations             String[]             // HCÉRES, CTI, CEFDG, EPAS, EQUIS
+  programQualityScore        Float?               // 0-100
+  graduationRate             Float?               // 0-1 (percentage)
+  
+  // C. Admissions & Selectivity
+  selectivityLevel           String?              // High, Medium, Low
+  averageEntryRequirements   String?
+  admissionProcedure         String?
+  internationalAdmission     Boolean              @default(false)
+  tuitionRangeMin            Int?
+  tuitionRangeMax            Int?
+  
+  // D. Rankings & Reputation
+  nationalRanking            Int?
+  internationalRanking       Int?
+  specialtyRankings          Json?                // { "Law": 5, "Engineering": 10 }
+  employerReputationScore    Float?               // 0-100
+  researchReputationScore    Float?               // 0-100
+  
+  // E. Research & Innovation
+  researchCentersCount       Int?
+  doctoralSchoolsCount       Int?
+  annualPublications         Int?
+  patentsFiled               Int?
+  researchBudget             Float?
+  industryPartnershipsCount  Int?
+  
+  // F. Student Life & Facilities
+  campusInfrastructureRating Float?               // 0-5
+  librariesCount             Int?
+  studentAssociationsCount   Int?
+  annualEventsCount          Int?
+  sportsRanking              Int?
+  housingAvailability        String?              // Excellent, Good, Limited
+  diningFacilitiesCount      Int?
+  
+  // G. International Outlook
+  internationalStudentsPct   Float?               // 0-1 (percentage)
+  partnerUniversitiesCount   Int?
+  exchangePrograms           String[]             // Erasmus, bilateral, etc.
+  englishCoursesAvailable    Boolean              @default(false)
+  doubleDegreeOpportunities  Boolean              @default(false)
+  
+  // H. Financial & Economic Metrics
+  scholarshipOptions         String[]
+  operationalBudget          Float?
+  fundingSources             Json?                // { "state": 60, "private": 30, "research": 10 }
+  
+  // I. Outcomes & Employability
+  employmentRate             Float?               // 0-1 (percentage)
+  medianSalary               Int?                 // 6-12 months after graduation
+  topEmployers               String[]
+  
+  // Metric Mode Configuration
+  // Tracks which fields use static (admin-provided) vs dynamic (calculated) values
+  // Format: { "totalStudentPopulation": "static", "graduationRate": "dynamic", ... }
+  metricModes                Json?                @default("{}")
+  
+  // Cached calculated metrics (for performance)
+  calculatedMetricsCache     Json?
+  cacheUpdatedAt             DateTime?
+  
   claims       UniversityClaim[]
   claimedBy    User?             @relation("UniversityGroupClaim", fields: [claimedById], references: [id])
   universities University[]      @relation("GroupMembership")
@@ -472,15 +551,19 @@ model UniversityGroup {
 model MicroContent {
   id           String     @id @default(uuid())
   universityId String
-  category     String
+  blockType    String     @default("rich_text_block") // Type of block (deadline_card, announcement_banner, etc.)
   title        String
-  content      String
+  data         Json       @default("{}") // Flexible JSON storage for block-specific data
   priority     Int        @default(0)
+  isActive     Boolean    @default(true)
+  category     String?    // Optional categorization (deprecated but kept for backward compatibility)
+  content      String?    // Deprecated: kept for backward compatibility with old blocks
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   university   University @relation(fields: [universityId], references: [id])
 
   @@index([universityId])
+  @@index([blockType])
 }
 
 model StaticPage {
@@ -679,6 +762,7 @@ enum ArticleStatus {
   ARCHIVED
   PENDING
   REJECTED
+  NEEDS_REVISION
 }
 
 enum ReviewStatus {
@@ -751,4 +835,208 @@ enum ProfileVisibility {
   PUBLIC
   PRIVATE
   FOLLOWERS_ONLY
+}
+
+// ==========================================
+// ANALYTICS MODELS
+// ==========================================
+
+// Individual page view tracking
+model PageView {
+  id         String   @id @default(uuid())
+  page       String   // 'article', 'university', 'group', 'home', 'search', 'compare', 'blog'
+  entityId   String?  // article/university/group ID if applicable
+  entitySlug String?  // for easier querying
+  userId     String?  // null for anonymous visitors
+  sessionId  String   // anonymous session tracking (UUID or fingerprint)
+  referrer   String?  // where traffic came from
+  userAgent  String?  // browser/device info
+  country    String?
+  city       String?
+  device     String?  // 'mobile', 'tablet', 'desktop'
+  browser    String?  // 'chrome', 'firefox', 'safari', etc.
+  duration   Int?     // time spent on page in seconds (updated on page leave)
+  createdAt  DateTime @default(now())
+
+  @@index([page, entityId])
+  @@index([page, entitySlug])
+  @@index([createdAt])
+  @@index([userId])
+  @@index([sessionId])
+}
+
+// Daily aggregated analytics for performance
+model DailyAnalytics {
+  id             String   @id @default(uuid())
+  date           DateTime @db.Date
+  entityType     String   // 'article', 'university', 'group', 'site'
+  entityId       String?  // null for site-wide metrics
+  pageViews      Int      @default(0)
+  uniqueVisitors Int      @default(0)
+  avgDuration    Float?   // average time on page in seconds
+  bounceRate     Float?   // percentage of single-page sessions
+  newVisitors    Int      @default(0)
+  returningVisitors Int   @default(0)
+  mobileViews    Int      @default(0)
+  desktopViews   Int      @default(0)
+  tabletViews    Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([date, entityType, entityId])
+  @@index([date])
+  @@index([entityType, entityId])
+  @@index([entityType])
+}
+
+// User engagement events (clicks, shares, downloads, etc.)
+model EngagementEvent {
+  id         String   @id @default(uuid())
+  userId     String?  // null for anonymous
+  sessionId  String
+  eventType  String   // 'click', 'share', 'download', 'search', 'like', 'comment', 'save', 'compare'
+  entityType String?  // 'article', 'university', 'group'
+  entityId   String?
+  metadata   Json?    // additional context (e.g., search query, button clicked)
+  createdAt  DateTime @default(now())
+
+  @@index([eventType])
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+// Search analytics
+model SearchAnalytics {
+  id          String   @id @default(uuid())
+  query       String
+  userId      String?
+  sessionId   String
+  resultsCount Int     @default(0)
+  clickedResult String? // ID of the result clicked
+  page        String   // 'university_search', 'blog_search', 'general'
+  filters     Json?    // search filters applied
+  createdAt   DateTime @default(now())
+
+  @@index([query])
+  @@index([createdAt])
+  @@index([page])
+}
+
+// Traffic sources aggregation
+model TrafficSource {
+  id         String   @id @default(uuid())
+  date       DateTime @db.Date
+  source     String   // 'direct', 'organic', 'social', 'referral', 'email', 'paid'
+  medium     String?  // more specific (e.g., 'google', 'facebook', 'twitter')
+  campaign   String?  // UTM campaign if present
+  visits     Int      @default(0)
+  pageViews  Int      @default(0)
+  bounceRate Float?
+  avgDuration Float?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([date, source, medium, campaign])
+  @@index([date])
+  @@index([source])
+}
+
+// Geographic analytics
+model GeoAnalytics {
+  id          String   @id @default(uuid())
+  date        DateTime @db.Date
+  country     String
+  city        String?
+  visits      Int      @default(0)
+  uniqueUsers Int      @default(0)
+  pageViews   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([date, country, city])
+  @@index([date])
+  @@index([country])
+}
+
+// Article-specific detailed analytics (extends existing ArticleAnalytics)
+model ArticleDetailedAnalytics {
+  id               String   @id @default(uuid())
+  articleId        String
+  date             DateTime @db.Date
+  impressions      Int      @default(0) // times shown in lists
+  clicks           Int      @default(0) // clicks from lists
+  readTime         Float?   // average read time in seconds
+  scrollDepth      Float?   // average scroll depth percentage
+  socialShares     Json?    // { facebook: 0, twitter: 0, linkedin: 0 }
+  conversionRate   Float?   // percentage of visitors who engaged
+  topReferrers     Json?    // top 5 referrer domains
+  topCountries     Json?    // top 5 countries
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([articleId, date])
+  @@index([articleId])
+  @@index([date])
+}
+
+// University page analytics
+model UniversityAnalytics {
+  id               String   @id @default(uuid())
+  universityId     String
+  date             DateTime @db.Date
+  pageViews        Int      @default(0)
+  uniqueVisitors   Int      @default(0)
+  saveCount        Int      @default(0)  // added to saved list
+  compareCount     Int      @default(0)  // added to comparison
+  reviewViews      Int      @default(0)
+  websiteClicks    Int      @default(0)  // clicks to university website
+  avgTimeOnPage    Float?
+  topReferrers     Json?
+  visitorTypes     Json?    // { student: 0, parent: 0, counselor: 0 }
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([universityId, date])
+  @@index([universityId])
+  @@index([date])
+}
+
+// Group page analytics
+model GroupAnalytics {
+  id               String   @id @default(uuid())
+  groupId          String
+  date             DateTime @db.Date
+  pageViews        Int      @default(0)
+  uniqueVisitors   Int      @default(0)
+  universityClicks Int      @default(0)  // clicks to member universities
+  websiteClicks    Int      @default(0)
+  avgTimeOnPage    Float?
+  topReferrers     Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([groupId, date])
+  @@index([groupId])
+  @@index([date])
+}
+
+// Author analytics summary (for article authors)
+model AuthorAnalytics {
+  id               String   @id @default(uuid())
+  userId           String
+  date             DateTime @db.Date
+  totalViews       Int      @default(0)
+  totalLikes       Int      @default(0)
+  totalComments    Int      @default(0)
+  totalShares      Int      @default(0)
+  articlesCount    Int      @default(0)
+  avgEngagementRate Float?
+  topArticle       String?  // articleId of best performing
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
 }

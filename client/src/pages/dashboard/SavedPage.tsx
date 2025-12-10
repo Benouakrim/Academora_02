@@ -43,9 +43,9 @@ export default function SavedPage() {
       case 'name-desc':
         return data.sort((a, b) => b.university.name.localeCompare(a.university.name))
       case 'date-newest':
-        return data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        return data.sort((a, b) => new Date((b as any).createdAt || 0).getTime() - new Date((a as any).createdAt || 0).getTime())
       case 'date-oldest':
-        return data.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        return data.sort((a, b) => new Date((a as any).createdAt || 0).getTime() - new Date((b as any).createdAt || 0).getTime())
       default:
         return data
     }

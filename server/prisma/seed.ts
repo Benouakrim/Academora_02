@@ -1,4 +1,8 @@
+import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
+import { PrismaNeon } from '@prisma/adapter-neon'
+import { neonConfig } from '@neondatabase/serverless'
+import ws from 'ws'
 import { 
   SeedRunner,
   usersSeed,
@@ -15,7 +19,11 @@ import {
   savedUniversitiesSeed
 } from './seeds'
 
-const prisma = new PrismaClient()
+neonConfig.webSocketConstructor = ws
+
+const connectionString = process.env.DATABASE_URL!
+const adapter = new PrismaNeon({ connectionString })
+const prisma = new PrismaClient({ adapter })
 
 async function main() {
   console.log('🌱 Starting database seeding...\n')

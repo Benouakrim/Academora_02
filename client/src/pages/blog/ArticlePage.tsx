@@ -1,6 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useAnalyticsTracking } from '@/hooks/useAnalyticsTracking';
 import { format } from 'date-fns';
 import { ArrowLeft, Calendar, Clock, Eye, Share2, Bookmark, Edit, Trash2, Heart, Shield } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -36,6 +37,9 @@ export default function ArticlePage() {
   const [isLiked, setIsLiked] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  
+  // Analytics tracking
+  const { trackPageView, trackEvent } = useAnalyticsTracking();
 
   const { data: article, isLoading, error } = useQuery({
     queryKey: ['article', slug],
@@ -53,9 +57,19 @@ export default function ArticlePage() {
   // Track article view
   useEffect(() => {
     if (article?.id && slug) {
-      api.post(`/articles/${slug}/view`).catch(() => {});
+      trackPageView({
+        entityType: 'article',
+        entityId: article.id,
+        title: article.title,
+        metadata: {
+          slug,
+          authorId: article.authorId,
+          universityId: article.universityId,
+          category: article.category
+        }
+      });
     }
-  }, [article?.id, slug]);
+  }, [article?.id, slug, trackPageView]);
 
   // Check if article is liked by user
   useEffect(() => {
@@ -75,9 +89,18 @@ export default function ArticlePage() {
       }
     },
     onSuccess: () => {
-      setIsLiked(!isLiked);
+      const newLikedState = !isLiked;
+      setIsLiked(newLikedState);
       queryClient.invalidateQueries({ queryKey: ['article', slug] });
-      toast.success(isLiked ? 'Article unliked' : 'Article liked!');
+      toast.success(newLikedState ? 'Article liked!' : 'Article unliked');
+      
+      // Track engagement event
+      trackEvent({
+        eventType: 'like',
+        entityType: 'article',
+        entityId: article.id,
+        metadata: { liked: newLikedState }
+      });
     },
     onError: () => {
       toast.error('Failed to update like');
@@ -98,8 +121,13 @@ export default function ArticlePage() {
   });
 
   const handleShare = async () => {
-    // Track share
-    api.post(`/articles/${article.id}/share`).catch(() => {});
+    // Track share event
+    trackEvent({
+      eventType: 'share',
+      entityType: 'article',
+      entityId: article.id,
+      metadata: { url: window.location.href }
+    });
     
     if (navigator.share) {
       navigator.share({
@@ -182,7 +210,6 @@ export default function ArticlePage() {
         title={article.metaTitle || `${article.title} - AcademOra`}
         description={article.metaDescription || article.excerpt || ''}
         image={article.ogImage || article.featuredImage || undefined}
-        canonical={article.canonicalUrl || undefined}
       />
       <article className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
         {/* Admin Controls Bar */}

@@ -19,6 +19,12 @@ router.post('/', requireAdmin, controller.createGroup);
 // PUT /api/groups/:id - Update group (Admin only)
 router.put('/:id', requireAdmin, controller.updateGroup);
 
+// PUT /api/groups/:id/metric-modes - Update metric mode configuration (Admin only)
+router.put('/:id/metric-modes', requireAdmin, controller.updateMetricModes);
+
+// POST /api/groups/:id/recalculate - Force recalculate metrics (Admin only)
+router.post('/:id/recalculate', requireAdmin, controller.recalculateMetrics);
+
 // DELETE /api/groups/:id - Delete group (Admin only)
 router.delete('/:id', requireAdmin, controller.deleteGroup);
 

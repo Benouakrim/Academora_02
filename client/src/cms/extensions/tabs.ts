@@ -97,14 +97,14 @@ export const TabsExtension = Node.create({
   },
   
   addNodeView() {
-    return ReactNodeViewRenderer(TabsView as React.ComponentType);
+    return ReactNodeViewRenderer(TabsView as any);
   },
   
   addCommands() {
     return {
       setTabs:
         (attributes: Record<string, unknown>) =>
-        ({ commands }: { commands: Record<string, unknown> }) => {
+        ({ commands }: { commands: any }) => {
           return commands.insertContent({
             type: this.name,
             attrs: attributes,

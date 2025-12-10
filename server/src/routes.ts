@@ -34,10 +34,12 @@ import financialProfileRoutes from './routes/financialProfile';
 import profilesRoutes from './routes/profiles';
 import predictionRoutes from './routes/predictionRoutes';
 import mediaRoutes from './routes/media';
+import analyticsRoutes from './routes/analytics';
 
 // Public routes (NO AUTH)
 router.use('/profiles', profilesRoutes);
 router.use('/media', mediaRoutes);
+router.use('/analytics', analyticsRoutes); // Analytics tracking is public (for anonymous visitors)
 
 // Webhooks - NO AUTH (uses signature verification)
 router.use('/webhooks', webhookRoutes);

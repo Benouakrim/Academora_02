@@ -92,14 +92,14 @@ export const ChecklistExtension = Node.create({
   },
   
   addNodeView() {
-    return ReactNodeViewRenderer(ChecklistView as React.ComponentType);
+    return ReactNodeViewRenderer(ChecklistView as any);
   },
   
   addCommands() {
     return {
       setChecklist:
         (attributes: Record<string, unknown>) =>
-        ({ commands }: { commands: Record<string, unknown> }) => {
+        ({ commands }: { commands: any }) => {
           return commands.insertContent({
             type: this.name,
             attrs: attributes,

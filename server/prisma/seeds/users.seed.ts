@@ -25,8 +25,8 @@ export const usersSeed: SeedFunction = {
 
     const student1 = await prisma.user.create({
       data: {
-        clerkId: "user_student1_demo_id",
-        email: "student@test.com",
+        clerkId: "user_36M1KsdIiCucGqk3LtzgyJ43wBc",
+        email: "ay.tester2001@gmail.com",
         firstName: "Alex",
         lastName: "Johnson",
         role: UserRole.USER,

@@ -41,7 +41,9 @@ export function setupInterceptors(getToken: GetTokenFn) {
       const token = await getToken()
       console.log('[API Interceptor] Token retrieved:', token ? `${token.substring(0, 20)}...` : 'null')
       if (token) {
-        config.headers = config.headers ?? {}
+        if (!config.headers) {
+          config.headers = {} as any
+        }
         config.headers.Authorization = `Bearer ${token}`
       }
     } catch (err) {

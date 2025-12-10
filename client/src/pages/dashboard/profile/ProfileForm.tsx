@@ -157,7 +157,7 @@ export default function ProfileForm({ initialData }: Props) {
     }
     reader.readAsDataURL(file)
 
-    setProfileImage(file)
+    setProfileImage(file as any)
   }, [])
 
   // Upload profile image

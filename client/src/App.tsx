@@ -36,17 +36,24 @@ const SignUp = lazy(() => import('@clerk/clerk-react').then(m => ({ default: m.S
 
 // Admin
 const AdminDashboardPage = lazy(() => import('@/pages/admin/AdminDashboardPage'))
+const AdminAnalyticsPage = lazy(() => import('@/pages/admin/AdminAnalyticsPage'))
 const AdminUniversitiesPage = lazy(() => import('@/pages/admin/universities/AdminUniversitiesPage'))
 const UniversityEditorPage = lazy(() => import('@/pages/admin/universities/UniversityEditorPage'))
 const ArticlesList = lazy(() => import('@/pages/admin/ArticlesList'))
+const PendingArticlesPage = lazy(() => import('@/pages/admin/articles/PendingArticlesPage'))
 const ReviewModerationPage = lazy(() => import('@/pages/admin/reviews/ReviewModerationPage'))
 const AdminHealthPage = lazy(() => import('@/pages/admin/AdminHealthPage'));
 const AdminGroupsPage = lazy(() => import('@/pages/admin/AdminGroupsPage'));
 const GroupEditorPage = lazy(() => import('@/pages/admin/GroupEditorPage'));
+const GroupMetricsAdmin = lazy(() => import('@/pages/admin/groups/GroupMetricsAdmin'));
 const AdminClaimsPage = lazy(() => import('@/pages/admin/AdminClaimsPage'));
 const AdminMicroContentPage = lazy(() => import('@/pages/admin/AdminMicroContentPage'));
 const AdminReferralsPage = lazy(() => import('@/pages/admin/AdminReferralsPage'));
 const AdminMediaPage = lazy(() => import('@/pages/admin/AdminMediaPage'));
+
+// Dashboard Pages
+const MyArticlesPage = lazy(() => import('@/pages/dashboard/MyArticlesPage'));
+const MyArticlesAnalyticsPage = lazy(() => import('@/pages/dashboard/MyArticlesAnalyticsPage'));
 
 // User Pages
 const MyClaimsPage = lazy(() => import('@/pages/dashboard/MyClaimsPage'));
@@ -98,6 +105,8 @@ export default function App() {
                 <Route path="claims" element={<MyClaimsPage />} />
                 <Route path="claims/new" element={<NewClaimPage />} />
                 <Route path="matching-engine" element={<MatchingEnginePage />} />
+                <Route path="my-articles" element={<MyArticlesPage />} />
+                <Route path="my-articles/analytics" element={<MyArticlesAnalyticsPage />} />
               </Route>
             </Route>
 
@@ -105,13 +114,16 @@ export default function App() {
             <Route element={<ProtectedRoute />}> 
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminDashboardPage />} />
+                <Route path="analytics" element={<AdminAnalyticsPage />} />
                 <Route path="universities" element={<AdminUniversitiesPage />} />
                 <Route path="universities/new" element={<UniversityEditorPage />} />
                 <Route path="universities/:id" element={<UniversityEditorPage />} />
                 <Route path="groups" element={<AdminGroupsPage />} />
                 <Route path="groups/new" element={<GroupEditorPage />} />
                 <Route path="groups/:id" element={<GroupEditorPage />} />
+                <Route path="groups/:id/metrics" element={<GroupMetricsAdmin />} />
                 <Route path="articles" element={<ArticlesList />} />
+                <Route path="articles/pending" element={<PendingArticlesPage />} />
                 <Route path="articles/new" element={<ArticleEditorLayout />} />
                 <Route path="articles/:id" element={<ArticleEditorLayout />} />
                 <Route path="reviews" element={<ReviewModerationPage />} />

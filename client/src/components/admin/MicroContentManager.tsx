@@ -34,6 +34,8 @@ interface MicroContentManagerProps {
 }
 
 export default function MicroContentManager({ universityId }: MicroContentManagerProps) {
+  console.log('[MicroContentManager] Component rendered with universityId:', universityId);
+  
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -54,14 +56,21 @@ export default function MicroContentManager({ universityId }: MicroContentManage
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      await api.post('/micro-content', { ...data, universityId });
+      console.log('[MicroContentManager] Creating micro-content:', { data, universityId });
+      const payload = { ...data, universityId };
+      console.log('[MicroContentManager] Payload:', payload);
+      const response = await api.post('/micro-content', payload);
+      console.log('[MicroContentManager] Response:', response);
+      return response;
     },
     onSuccess: () => {
+      console.log('[MicroContentManager] Create success');
       queryClient.invalidateQueries({ queryKey: ['micro-content', universityId] });
       toast.success('Micro-content created successfully');
       resetForm();
     },
     onError: (error: unknown) => {
+      console.error('[MicroContentManager] Create error:', error);
       const err = error as { response?: { data?: { message?: string } } };
       toast.error(err.response?.data?.message || 'Failed to create micro-content');
     },
@@ -127,16 +136,20 @@ export default function MicroContentManager({ universityId }: MicroContentManage
     setIsAdding(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    console.log('[MicroContentManager] Form submitted:', { formData, editingId, universityId });
+    
     if (!formData.category || !formData.title || !formData.content) {
       toast.error('Please fill in all required fields');
       return;
     }
 
     if (editingId) {
+      console.log('[MicroContentManager] Updating existing micro-content');
       updateMutation.mutate({ id: editingId, data: formData });
     } else {
+      console.log('[MicroContentManager] Creating new micro-content');
       createMutation.mutate(formData);
     }
   };
@@ -190,7 +203,7 @@ export default function MicroContentManager({ universityId }: MicroContentManage
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="category">Category *</Label>
@@ -239,14 +252,15 @@ export default function MicroContentManager({ universityId }: MicroContentManage
                   Cancel
                 </Button>
                 <Button
-                  type="submit"
+                  type="button"
+                  onClick={(e) => handleSubmit(e as any)}
                   disabled={createMutation.isPending || updateMutation.isPending}
                 >
                   <Save className="h-4 w-4 mr-2" />
                   {editingId ? 'Update' : 'Create'}
                 </Button>
               </div>
-            </form>
+            </div>
           </CardContent>
         </Card>
       )}

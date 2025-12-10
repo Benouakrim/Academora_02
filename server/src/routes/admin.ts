@@ -4,6 +4,7 @@ import { requireAdmin } from '../middleware/requireAdmin'
 import { validate } from '../middleware/validate'
 import { reviewClaimSchema } from '../validation/claimSchemas'
 import * as ClaimController from '../controllers/ClaimController'
+import * as analyticsController from '../controllers/analyticsController'
 import { SyncService } from '../services/SyncService'
 import { Cache } from '../lib/cache'
 import prisma from '../lib/prisma'
@@ -11,6 +12,52 @@ import prisma from '../lib/prisma'
 const router = Router()
 
 router.get('/stats', requireAdmin, getStats)
+
+// ==========================================
+// ADMIN ANALYTICS ROUTES
+// ==========================================
+
+// Main analytics dashboard
+router.get('/analytics/dashboard', requireAdmin, analyticsController.getAdminDashboard);
+
+// Site overview
+router.get('/analytics/overview', requireAdmin, analyticsController.getSiteOverview);
+
+// Page views time series
+router.get('/analytics/pageviews', requireAdmin, analyticsController.getPageViewsTimeSeries);
+
+// Top performers (articles, universities, groups)
+router.get('/analytics/top-performers', requireAdmin, analyticsController.getTopPerformers);
+
+// Detailed articles analytics
+router.get('/analytics/articles', requireAdmin, analyticsController.getArticlesAnalytics);
+
+// Detailed universities analytics
+router.get('/analytics/universities', requireAdmin, analyticsController.getUniversitiesAnalytics);
+
+// Detailed groups analytics
+router.get('/analytics/groups', requireAdmin, analyticsController.getGroupsAnalytics);
+
+// User activity analytics
+router.get('/analytics/users', requireAdmin, analyticsController.getUsersAnalytics);
+
+// Device breakdown
+router.get('/analytics/devices', requireAdmin, analyticsController.getDeviceBreakdown);
+
+// Traffic sources
+router.get('/analytics/traffic-sources', requireAdmin, analyticsController.getTrafficSources);
+
+// Geographic distribution
+router.get('/analytics/geography', requireAdmin, analyticsController.getGeographicDistribution);
+
+// Search analytics
+router.get('/analytics/search', requireAdmin, analyticsController.getSearchAnalytics);
+
+// Engagement summary
+router.get('/analytics/engagement', requireAdmin, analyticsController.getEngagementSummary);
+
+// Real-time data
+router.get('/analytics/realtime', requireAdmin, analyticsController.getRealTimeData);
 
 // Get all reviews with optional status filter
 router.get('/reviews', requireAdmin, async (req, res) => {

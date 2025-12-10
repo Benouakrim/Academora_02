@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/AppError';
 import prisma from '../lib/prisma';
+import { GroupMetricsCalculator } from '../services/groupMetricsCalculator';
 
 // GET / - Get all groups with member count
 export const getGroups = async (req: Request, res: Response, next: NextFunction) => {
@@ -69,10 +70,13 @@ export const getGroupBySlug = async (req: Request, res: Response, next: NextFunc
             slug: true,
             city: true,
             state: true,
+            country: true,
             logoUrl: true,
             tuitionOutState: true,
             acceptanceRate: true,
-          }
+            studentPopulation: true,
+          },
+          orderBy: { name: 'asc' }
         }
       }
     });
@@ -81,7 +85,30 @@ export const getGroupBySlug = async (req: Request, res: Response, next: NextFunc
       return next(new AppError(404, 'University group not found'));
     }
 
-    res.status(200).json({ status: 'success', data: group });
+    // Calculate dynamic metrics
+    const calculatedMetrics = await GroupMetricsCalculator.getMetricsWithCache(group.id);
+
+    // Get metric modes configuration
+    const metricModes = (group.metricModes as Record<string, any>) || {};
+
+    // Merge static and dynamic metrics based on mode configuration
+    const mergedMetrics = GroupMetricsCalculator.mergeMetrics(
+      group as any,
+      calculatedMetrics,
+      metricModes
+    );
+
+    // Return group with merged metrics
+    const responseData = {
+      ...group,
+      ...mergedMetrics,
+      _computed: {
+        dynamicMetrics: calculatedMetrics,
+        metricModes,
+      }
+    };
+
+    res.status(200).json({ status: 'success', data: responseData });
   } catch (err) {
     next(err);
   }
@@ -173,6 +200,9 @@ export const updateGroup = async (req: Request, res: Response, next: NextFunctio
         set: universityIds.map((id: string) => ({ id }))
       };
       updatedData.memberCount = universityIds.length;
+      
+      // Invalidate cache when universities change
+      await GroupMetricsCalculator.invalidateCache(id);
     }
 
     const group = await prisma.universityGroup.update({
@@ -211,6 +241,79 @@ export const deleteGroup = async (req: Request, res: Response, next: NextFunctio
     });
 
     res.status(200).json({ status: 'success', message: 'Group deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PUT /:id/metric-modes - Update metric mode configuration
+export const updateMetricModes = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { metricModes } = req.body;
+
+    // Validate that metricModes is an object
+    if (!metricModes || typeof metricModes !== 'object') {
+      return next(new AppError(400, 'Invalid metric modes configuration'));
+    }
+
+    // Validate that all values are either 'static' or 'dynamic'
+    const validModes = ['static', 'dynamic'];
+    for (const [key, value] of Object.entries(metricModes)) {
+      if (!validModes.includes(value as string)) {
+        return next(new AppError(400, `Invalid mode "${value}" for metric "${key}". Must be "static" or "dynamic"`));
+      }
+    }
+
+    const group = await prisma.universityGroup.update({
+      where: { id },
+      data: { 
+        metricModes: metricModes as any,
+        updatedAt: new Date(),
+      },
+    });
+
+    // Invalidate cache when modes change
+    await GroupMetricsCalculator.invalidateCache(id);
+
+    res.status(200).json({ 
+      status: 'success', 
+      data: { 
+        metricModes: group.metricModes,
+        message: 'Metric modes updated successfully'
+      } 
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /:id/recalculate - Force recalculate metrics
+export const recalculateMetrics = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    // Check if group exists
+    const group = await prisma.universityGroup.findUnique({
+      where: { id }
+    });
+
+    if (!group) {
+      return next(new AppError(404, 'University group not found'));
+    }
+
+    // Invalidate cache and recalculate
+    await GroupMetricsCalculator.invalidateCache(id);
+    const calculatedMetrics = await GroupMetricsCalculator.calculateMetrics(id);
+    await GroupMetricsCalculator.updateCache(id, calculatedMetrics);
+
+    res.status(200).json({ 
+      status: 'success', 
+      data: {
+        calculatedMetrics,
+        message: 'Metrics recalculated successfully'
+      }
+    });
   } catch (err) {
     next(err);
   }

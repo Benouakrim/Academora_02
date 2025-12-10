@@ -4,3 +4,4 @@
  */
 
 export * from './articleForecaster';
+export * from './groupMetrics';

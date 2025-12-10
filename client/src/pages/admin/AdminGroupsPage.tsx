@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowUpDown, Pencil, Trash2, Plus, Users } from 'lucide-react';
+import { ArrowUpDown, Pencil, Trash2, Plus, Users, Calculator } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -115,8 +115,13 @@ export default function AdminGroupsPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Link to={`/admin/groups/${row.original.id}`}>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" title="Edit group info">
               <Pencil className="h-4 w-4" />
+            </Button>
+          </Link>
+          <Link to={`/admin/groups/${row.original.id}/metrics`}>
+            <Button variant="ghost" size="sm" title="Control metrics">
+              <Calculator className="h-4 w-4" />
             </Button>
           </Link>
           <AlertDialog>

@@ -126,14 +126,14 @@ export const CalculatorExtension = Node.create({
   },
   
   addNodeView() {
-    return ReactNodeViewRenderer(CalculatorView as React.ComponentType);
+    return ReactNodeViewRenderer(CalculatorView as any);
   },
   
   addCommands() {
     return {
       setCalculator:
         (attributes: Record<string, unknown>) =>
-        ({ commands }: { commands: Record<string, unknown> }) => {
+        ({ commands }: { commands: any }) => {
           return commands.insertContent({
             type: this.name,
             attrs: attributes,

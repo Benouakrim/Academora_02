@@ -70,8 +70,8 @@ export default function ComparePage() {
   
   // 1. Cost Chart (Bar)
   const costData = unis.map((u, i) => ({
-    name: u.shortName || u.name,
-    value: u.tuitionInternational || u.tuitionOutState || 0,
+    name: u.name,
+    value: u.tuitionOutState || 0,
     fill: COLORS[i % COLORS.length]
   }))
 
@@ -87,14 +87,14 @@ export default function ComparePage() {
       if (metric.subject === 'Student Life') val = (u.studentLifeScore || 0) * 20
       if (metric.subject === 'Safety') val = (u.safetyRating || 0) * 20
       if (metric.subject === 'Party Scene') val = (u.partySceneRating || 0) * 20
-      row[u.shortName || u.name] = val
+      row[u.name] = val
     })
     return row
   })
 
   // 3. Scatter Plot Data (Safety vs Party Scene)
   const scatterData = unis.map((u, i) => ({
-    name: u.shortName || u.name,
+    name: u.name,
     x: u.partySceneRating || 0,
     y: u.safetyRating || 0,
     z: 200,
@@ -250,7 +250,7 @@ export default function ComparePage() {
                     title="Campus Life & Safety Scores" 
                     type="radar" 
                     data={radarData}
-                    dataKeys={unis.map(u => u.shortName || u.name)}
+                    dataKeys={unis.map(u => u.name)}
                   />
                 )}
                 {unis.length >= 2 && (

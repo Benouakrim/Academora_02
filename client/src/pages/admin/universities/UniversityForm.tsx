@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent } from '@/components/ui/card'
 import ImageUpload from '@/components/common/ImageUpload'
-import MicroContentManager from '@/components/admin/MicroContentManager'
+import MicroContentManagerV2 from '@/components/admin/MicroContentManagerV2'
 
 // Relaxed schema for the form (backend handles strict types)
 const universitySchema = z.object({
@@ -251,7 +251,7 @@ export default function UniversityForm({ initialData, onSubmit, universityId }: 
         {/* --- 6. MICRO-CONTENT TAB --- */}
         {universityId && (
           <TabsContent value="micro-content" className="space-y-4 mt-4">
-            <MicroContentManager universityId={universityId} />
+            <MicroContentManagerV2 universityId={universityId} />
           </TabsContent>
         )}
       </Tabs>

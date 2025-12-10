@@ -13,6 +13,8 @@ const nav = [
   { to: '/dashboard/badges', label: 'Badges', icon: Award },
   { to: '/dashboard/referrals', label: 'Referrals', icon: Users },
   { to: '/dashboard/claims', label: 'My Claims', icon: FileText },
+  { to: '/dashboard/my-articles', label: 'My Articles', icon: FileText },
+  { to: '/dashboard/my-articles/analytics', label: 'My Analytics', icon: BarChart3 },
 ]
 
 export default function DashboardLayout() {

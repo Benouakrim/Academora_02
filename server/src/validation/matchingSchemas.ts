@@ -43,44 +43,55 @@ export const matchRequestSchema = {
 
 export type MatchRequest = z.infer<typeof matchRequestSchema['body']>;
 
+// Scoring reason schema for transparency
+const scoringReasonSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+  impact: z.enum(['positive', 'negative', 'neutral']),
+  value: z.union([z.number(), z.string()]).optional(),
+});
+
+// Category score schema with reasons
+const categoryScoreSchema = z.object({
+  score: z.number(),
+  weight: z.number(),
+  contribution: z.number(),
+  reasons: z.array(scoringReasonSchema),
+});
+
 // Response schema for university match results
 export const universityMatchResultSchema = z.object({
   university: z.any(), // University object from Prisma
   matchScore: z.number(),
   matchPercentage: z.number().min(0).max(100),
   breakdown: z.object({
-    academic: z.number(),
-    financial: z.number(),
-    social: z.number(),
-    location: z.number(),
-    future: z.number(),
-  }),
-  scoreBreakdown: z.object({
     academic: z.object({
       score: z.number(),
-      weight: z.number(),
-      contribution: z.number(),
+      reasons: z.array(scoringReasonSchema),
     }),
     financial: z.object({
       score: z.number(),
-      weight: z.number(),
-      contribution: z.number(),
+      reasons: z.array(scoringReasonSchema),
     }),
     social: z.object({
       score: z.number(),
-      weight: z.number(),
-      contribution: z.number(),
+      reasons: z.array(scoringReasonSchema),
     }),
     location: z.object({
       score: z.number(),
-      weight: z.number(),
-      contribution: z.number(),
+      reasons: z.array(scoringReasonSchema),
     }),
     future: z.object({
       score: z.number(),
-      weight: z.number(),
-      contribution: z.number(),
+      reasons: z.array(scoringReasonSchema),
     }),
+  }),
+  scoreBreakdown: z.object({
+    academic: categoryScoreSchema,
+    financial: categoryScoreSchema,
+    social: categoryScoreSchema,
+    location: categoryScoreSchema,
+    future: categoryScoreSchema,
     total: z.number(),
   }),
 });

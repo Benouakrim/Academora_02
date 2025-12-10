@@ -76,14 +76,14 @@ export const CollapsibleExtension = Node.create({
   },
   
   addNodeView() {
-    return ReactNodeViewRenderer(CollapsibleView as React.ComponentType);
+    return ReactNodeViewRenderer(CollapsibleView as any);
   },
   
   addCommands() {
     return {
       setCollapsible:
         (attributes: Record<string, unknown>) =>
-        ({ commands }: { commands: Record<string, unknown> }) => {
+        ({ commands }: { commands: any }) => {
           return commands.insertContent({
             type: this.name,
             attrs: attributes,

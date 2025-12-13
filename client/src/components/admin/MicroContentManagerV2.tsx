@@ -1,6 +1,6 @@
 // client/src/components/admin/MicroContentManagerV2.tsx
 // New improved version with block type support
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Save, X, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, X, ChevronUp, ChevronDown, Sparkles, Copy } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,10 +24,31 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import type { BlockType, MicroContentBlock } from '@/../../shared/types/microContentBlocks';
 import { BLOCK_METADATA as blockMetadata } from '@/../../shared/types/microContentBlocks';
 import BlockEditor from './BlockEditor';
 import BlockRenderer from '../blocks/BlockRenderer';
+import PredictionSimulator from './PredictionSimulator';
+import { useAuth } from '@clerk/clerk-react';
+import { useUserStore } from '@/store/useUserStore';
+import { AlertCircle } from 'lucide-react'; // P27: For role restriction warning
+import { DuplicateBlockModal } from './DuplicateBlockModal';
+
+// NEW CONSTANT: Defines ALL essential Hard Blocks that must be auto-created and locked.
+// The negative priority ensures they load before user-created Soft Blocks.
+// UPDATED (Prompt 23): Added essential non-Canonical blocks for system standardization
+const CANONICAL_HARD_BLOCK_TYPES = [
+  'rich_text_block', // Used for "About" section - primary descriptive content
+  'deadline_card',
+  'admissions_range_meter',
+  'cost_breakdown_chart',
+  'outcome_metrics',
+  // NEW (P23): Essential content blocks - non-Canonical writers
+  'campus_map_poi', // Must always be present for location/map
+  'contact_box', // Must always be present for communication
+];
 
 interface MicroContentManagerV2Props {
   universityId: string;
@@ -39,25 +60,56 @@ type SavedBlock = {
   title: string;
   data: Record<string, unknown>;
   priority: number;
+  // NEW FIELDS for Hard/Soft distinction from DB schema (Prompt 1)
+  isHard: boolean;
+  canonicalMapping: string | null;
+  accessRole?: 'ADMIN_ONLY' | 'UNIVERSITY_ADMIN_PLUS'; // NEW (P27): Role restriction field
 };
 
 export default function MicroContentManagerV2({ universityId }: MicroContentManagerV2Props) {
   const queryClient = useQueryClient();
+  const { isSignedIn, isLoaded } = useAuth();
+  const userId = isSignedIn && isLoaded ? 'current-user-id' : '';  
+  // P27: Get the current user's role from global store
+  const profile = useUserStore((state) => state.profile);
+  const userRole = profile?.accountType || 'USER'; 
+  const isAdmin = userRole === 'ADMIN';
+  
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedBlockType, setSelectedBlockType] = useState<BlockType>('rich_text_block');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [transientData, setTransientData] = useState<Record<string, unknown> | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     data: {},
   });
 
-  const { data: blocks = [], isLoading } = useQuery<SavedBlock[]>({
+  // PROMPT 20: NEW STATE - For bulk selection and batch operations
+  const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+
+  // Fetch blocks and perform transformation/initialization
+  const { data: fetchedBlocks = [], isLoading } = useQuery<SavedBlock[]>({
     queryKey: ['micro-content-v2', universityId],
     queryFn: async () => {
       const res = await api.get(`/micro-content/university/${universityId}`);
-      return res.data.data;
+      // Ensure fetched blocks conform to the SavedBlock type with new fields
+      return res.data.data.map((b: Record<string, unknown>) => ({
+        ...b,
+        isHard: (b.isHard ?? CANONICAL_HARD_BLOCK_TYPES.includes(b.blockType as string)) as boolean,
+        canonicalMapping: b.canonicalMapping,
+      })) as SavedBlock[];
     },
+  });
+
+  // NEW: Sort and filter blocks to ensure hard blocks appear first
+  const blocks = fetchedBlocks.sort((a, b) => {
+    // Hard blocks always come before soft blocks (false < true)
+    if (a.isHard !== b.isHard) {
+      return a.isHard ? -1 : 1;
+    }
+    return a.priority - b.priority;
   });
 
   const createMutation = useMutation({
@@ -123,11 +175,87 @@ export default function MicroContentManagerV2({ universityId }: MicroContentMana
     },
   });
 
+  // PROMPT 20: NEW MUTATIONS - Bulk Delete and Duplicate
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (blockIds: string[]) => {
+      const response = await api.delete('/micro-content/bulk-delete', { data: { blockIds } });
+      return response;
+    },
+    onSuccess: () => {
+      setSelectedBlockIds([]);
+      queryClient.invalidateQueries({ queryKey: ['micro-content-v2', universityId] });
+      toast.success(`${selectedBlockIds.length} blocks deleted successfully.`);
+    },
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to perform bulk deletion.');
+    },
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: async ({ sourceBlockId, targetUniversityIds }: { sourceBlockId: string; targetUniversityIds: string[] }) => {
+      const response = await api.post('/micro-content/duplicate', { sourceBlockId, targetUniversityIds });
+      return response;
+    },
+    onSuccess: () => {
+      setSelectedBlockIds([]);
+      queryClient.invalidateQueries({ queryKey: ['micro-content-v2', universityId] });
+      setIsDuplicateModalOpen(false);
+      // Note: Full cache invalidation happens on server for all affected universities
+      toast.success('Blocks duplicated successfully.');
+    },
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to duplicate blocks.');
+    },
+  });
+
+  const initializeHardBlocksMutation = useMutation({
+    mutationFn: async (payload: { blockType: BlockType; title: string; data: Record<string, unknown> }) => {
+      return api.post('/micro-content', { ...payload, universityId, priority: -100, isHard: true });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['micro-content-v2', universityId] });
+    },
+    onError: (error: unknown) => {
+      const err = error as { response?: { data?: { message?: string } } };
+      console.error('Failed to initialize hard block:', err.response?.data?.message);
+    },
+  });
+
+  // NEW useEffect: Auto-create essential Hard Blocks if missing
+  useEffect(() => {
+    if (!isLoading && blocks.length === 0) {
+      // Only run if the initial load shows no blocks
+      CANONICAL_HARD_BLOCK_TYPES.forEach((type) => {
+        const isMissing = !blocks.some((b) => b.blockType === type);
+        if (isMissing) {
+          // Initialize with a high negative priority to force to the top
+          const defaultTitle = blockMetadata[type as BlockType]?.label || 'Essential Block';
+          initializeHardBlocksMutation.mutate({
+            blockType: type as BlockType,
+            title: defaultTitle,
+            data: {}, // Default data, actual form will populate later
+          });
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, universityId]);
+
   const resetForm = () => {
     setFormData({ title: '', data: {} });
+    setTransientData(null);
     setIsAdding(false);
     setEditingId(null);
     setSelectedBlockType('rich_text_block');
+  };
+
+  // PROMPT 20: NEW - Toggle selection for a block
+  const handleSelectBlock = (blockId: string, isSelected: boolean) => {
+    setSelectedBlockIds(prev =>
+      isSelected ? [...prev, blockId] : prev.filter(id => id !== blockId)
+    );
   };
 
   const handleEdit = (block: SavedBlock) => {
@@ -284,6 +412,13 @@ export default function MicroContentManagerV2({ universityId }: MicroContentMana
                   blockType={selectedBlockType}
                   data={formData.data}
                   onChange={(newData) => setFormData((prev) => ({ ...prev, data: newData }))}
+                  universityId={universityId}
+                  onTransientChange={(field, value) => {
+                    setTransientData((prev) => ({
+                      ...(prev || formData.data),
+                      [field]: value,
+                    }));
+                  }}
                 />
               </div>
 
@@ -301,6 +436,15 @@ export default function MicroContentManagerV2({ universityId }: MicroContentMana
                   />
                 </div>
               </div>
+
+              {/* What-If Simulator (Scenario 2) */}
+              {userId && (
+                <PredictionSimulator
+                  currentData={transientData || formData.data}
+                  userId={userId}
+                  universityId={universityId}
+                />
+              )}
 
               {/* Actions */}
               <div className="flex justify-end gap-2">
@@ -342,6 +486,60 @@ export default function MicroContentManagerV2({ universityId }: MicroContentMana
         </div>
       )}
 
+      {/* PROMPT 20: NEW - Bulk Action Bar */}
+      {selectedBlockIds.length > 0 && (
+        <Card className="fixed bottom-4 left-1/2 -translate-x-1/2 p-4 shadow-2xl z-50 bg-white border-2 border-blue-500">
+          <div className="flex items-center gap-4 flex-wrap">
+            <span className="font-medium text-sm">
+              {selectedBlockIds.length} block{selectedBlockIds.length !== 1 ? 's' : ''} selected
+            </span>
+
+            <Button
+              onClick={() => setIsDuplicateModalOpen(true)}
+              disabled={selectedBlockIds.length !== 1 || blocks.find(b => b.id === selectedBlockIds[0])?.isHard || duplicateMutation.isPending}
+              variant="outline"
+              size="sm"
+            >
+              <Copy className="h-4 w-4 mr-2" /> Duplicate to Other Universities
+            </Button>
+
+            <Button
+              onClick={() => bulkDeleteMutation.mutate(selectedBlockIds)}
+              disabled={blocks.some(b => b.isHard && selectedBlockIds.includes(b.id)) || bulkDeleteMutation.isPending}
+              variant="destructive"
+              size="sm"
+            >
+              <Trash2 className="h-4 w-4 mr-2" /> Bulk Delete
+            </Button>
+
+            <Button
+              onClick={() => setSelectedBlockIds([])}
+              variant="ghost"
+              size="sm"
+            >
+              <X className="h-4 w-4 mr-2" /> Clear
+            </Button>
+
+            {blocks.some(b => b.isHard && selectedBlockIds.includes(b.id)) && (
+              <span className="text-red-500 text-xs ml-2">Cannot perform bulk action on Canonical Data.</span>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* P25: INTEGRATION - New DuplicateBlockModal Component */}
+      {selectedBlockIds.length === 1 && blocks.find(b => b.id === selectedBlockIds[0]) && (
+        <DuplicateBlockModal
+          isOpen={isDuplicateModalOpen}
+          onClose={() => setIsDuplicateModalOpen(false)}
+          sourceBlock={{
+            id: selectedBlockIds[0],
+            title: blocks.find(b => b.id === selectedBlockIds[0])?.title || 'Selected Block',
+          }}
+          duplicateMutation={duplicateMutation}
+        />
+      )}
+
       {/* Block List */}
       <div className="space-y-3">
         {filteredBlocks.length === 0 ? (
@@ -355,18 +553,37 @@ export default function MicroContentManagerV2({ universityId }: MicroContentMana
         ) : (
           filteredBlocks.map((block, index) => {
             const meta = blockMetadata[block.blockType as BlockType];
+            const isSelected = selectedBlockIds.includes(block.id);
+
+            // NEW: Logic for Hard Block Enforcement
+            const isHardLocked = block.isHard;
+            
+            // P27: Highlight if an ADMIN_ONLY block is being viewed by a Super Admin
+            const isSuperAdminOnly = block.accessRole === 'ADMIN_ONLY';
+
             return (
               <Card key={block.id}>
                 <CardContent className="p-4">
                   <div className="flex items-start gap-4">
+                    {/* PROMPT 20: NEW - Selection Checkbox */}
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={(checked) => handleSelectBlock(block.id, checked as boolean)}
+                      disabled={isHardLocked} // Cannot select Hard Blocks for bulk operations
+                      className="mt-1"
+                      aria-label={`Select block: ${block.title}`}
+                    />
+
                     {/* Reorder buttons */}
                     <div className="flex flex-col gap-1">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => moveBlock(index, 'up')}
-                        disabled={index === 0 || reorderMutation.isPending}
-                        className="h-6 w-6 p-0"
+                        // DISABLED if it's a Hard Block or at the top of its group
+                        disabled={isHardLocked || index === 0 || reorderMutation.isPending}
+                        className={`h-6 w-6 p-0 ${isHardLocked ? 'text-gray-400 cursor-not-allowed' : ''}`}
+                        title={isHardLocked ? 'Locked (Canonical Block)' : 'Move Up'}
                       >
                         <ChevronUp className="h-4 w-4" />
                       </Button>
@@ -374,8 +591,10 @@ export default function MicroContentManagerV2({ universityId }: MicroContentMana
                         variant="ghost"
                         size="sm"
                         onClick={() => moveBlock(index, 'down')}
-                        disabled={index === blocks.length - 1 || reorderMutation.isPending}
-                        className="h-6 w-6 p-0"
+                        // DISABLED if it's a Hard Block or at the bottom of its group
+                        disabled={isHardLocked || index === blocks.length - 1 || reorderMutation.isPending}
+                        className={`h-6 w-6 p-0 ${isHardLocked ? 'text-gray-400 cursor-not-allowed' : ''}`}
+                        title={isHardLocked ? 'Locked (Canonical Block)' : 'Move Down'}
                       >
                         <ChevronDown className="h-4 w-4" />
                       </Button>
@@ -386,13 +605,22 @@ export default function MicroContentManagerV2({ universityId }: MicroContentMana
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <h4 className="font-semibold">{block.title}</h4>
-                          {meta && (
-                            <Badge variant="secondary" className="mt-1">
-                              {meta.label}
-                            </Badge>
-                          )}
+                          <div className="mt-1 flex items-center gap-2">
+                            {meta && (
+                              <Badge variant="secondary">
+                                {meta.label}
+                              </Badge>
+                            )}
+                            {/* NEW VISUAL INDICATOR */}
+                            {isHardLocked && (
+                              <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">
+                                Canonical Data
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                         <div className="flex gap-2">
+                          {/* Edit button is always available for data editing */}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -400,30 +628,38 @@ export default function MicroContentManagerV2({ universityId }: MicroContentMana
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <Trash2 className="h-4 w-4 text-red-600" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Delete Block</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => deleteMutation.mutate(block.id)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+
+                          {/* DELETE BUTTON: Disabled if it's a Hard Block */}
+                          {!isHardLocked ? (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Block</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteMutation.mutate(block.id)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          ) : (
+                            <Button variant="ghost" size="sm" disabled title="Cannot Delete Canonical Data">
+                              <Trash2 className="h-4 w-4 text-gray-400" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                       {/* Preview */}
@@ -447,3 +683,17 @@ export default function MicroContentManagerV2({ universityId }: MicroContentMana
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

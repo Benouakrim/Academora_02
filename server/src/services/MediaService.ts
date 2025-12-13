@@ -210,6 +210,89 @@ class MediaService {
       fetch_format: 'auto'
     });
   }
+
+  /**
+   * Resolve media ID to URL (for unified media library integration)
+   * Supports both Video and Image media types
+   */
+  async getMediaUrlById(mediaId: string): Promise<string | null> {
+    try {
+      // Try to find as a Video first
+      const video = await prisma.video.findUnique({
+        where: { id: mediaId }
+      });
+
+      if (video) {
+        return video.url;
+      }
+
+      // If not a video, log warning and return null
+      // In future, this can support Image or other media types
+      console.warn(`Media with ID ${mediaId} not found in system`);
+      return null;
+    } catch (error) {
+      console.error(`Error resolving media ID ${mediaId}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetches a list of media assets (videos and images) for the media picker.
+   * Supports filtering by type.
+   * 
+   * NEW (Prompt 22): Unified media library integration for canonical media blocks.
+   */
+  async getMediaAssets(type?: 'image' | 'video'): Promise<Array<{
+    id: string;
+    url: string;
+    publicId: string;
+    type: 'image' | 'video';
+    altText: string;
+  }>> {
+    try {
+      // Fetch videos from the database
+      const videos = await prisma.video.findMany({
+        where: { isActive: true },
+        select: {
+          id: true,
+          url: true,
+          publicId: true,
+          title: true,
+          description: true,
+          thumbnailUrl: true
+        },
+        orderBy: { position: 'asc' }
+      });
+
+      // Convert videos to media asset format
+      const videoAssets = videos.map(v => ({
+        id: v.id,
+        url: v.thumbnailUrl || v.url,
+        publicId: v.publicId || v.id,
+        type: 'video' as const,
+        altText: v.title || v.description || 'Video Asset'
+      }));
+
+      // TODO: In future implementations, fetch images from a dedicated Image/Media table
+      // For now, return only video assets
+      // const images = await prisma.image.findMany(...);
+      // const imageAssets = images.map(i => ({ ... }));
+
+      // Filter by type if specified
+      if (type === 'image') {
+        return []; // No images available yet; implement when Image model is ready
+      }
+      if (type === 'video') {
+        return videoAssets;
+      }
+
+      // Return all media
+      return videoAssets;
+    } catch (error) {
+      console.error('Error fetching media assets:', error);
+      return [];
+    }
+  }
 }
 
 export default new MediaService();

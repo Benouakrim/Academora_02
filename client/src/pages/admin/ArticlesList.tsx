@@ -85,7 +85,6 @@ export default function ArticlesList() {
                 }
                 setUpdatingStatusId(null);
               }}
-              disabled={updatingStatusId === id}
             >
               <SelectTrigger className={`w-[120px] ${updatingStatusId === id ? 'opacity-50 cursor-not-allowed' : ''}`}>
                 <SelectValue placeholder="Status" />

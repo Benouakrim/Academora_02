@@ -35,6 +35,15 @@ interface TrackSearchOptions {
   filters?: Record<string, unknown>;
 }
 
+interface TrackBlockInteractionOptions {
+  blockId: string;
+  blockType: string;
+  eventType: string;
+  metadata?: Record<string, unknown>;
+  entityId: string;
+  entityType: 'university' | 'article';
+}
+
 /**
  * Hook for tracking analytics events
  */
@@ -120,6 +129,33 @@ export function useAnalyticsTracking() {
     }
   }, []);
 
+  /**
+   * Track block-specific interaction events
+   */
+  const trackBlockInteraction = useCallback(async ({ 
+    blockId, 
+    blockType, 
+    eventType, 
+    metadata, 
+    entityId, 
+    entityType 
+  }: TrackBlockInteractionOptions) => {
+    try {
+      await api.post('/engagement/block-track', {
+        blockId,
+        blockType,
+        eventType,
+        metadata,
+        entityId,
+        entityType,
+        sessionId: getSessionId(),
+      });
+    } catch (error) {
+      console.error('Failed to track block interaction:', error);
+    }
+  }, []);
+
+
   // Update duration when component unmounts or page changes
   useEffect(() => {
     return () => {
@@ -157,6 +193,7 @@ export function useAnalyticsTracking() {
     trackPageView,
     trackEvent,
     trackSearch,
+    trackBlockInteraction,
     updateDuration,
   };
 }

@@ -73,7 +73,9 @@ model University {
   shortName                String?
   description              String?
   logoUrl                  String?
+  logoMediaId              String?                    // NEW: Canonical reference to Media Library
   heroImageUrl             String?
+  heroImageMediaId         String?                    // NEW: Canonical reference to Media Library
   websiteUrl               String?
   established              Int?
   address                  String?
@@ -92,34 +94,54 @@ model University {
   setting                  CampusSetting?
   campusSizeAcres          Int?
   acceptanceRate           Float?
+  acceptanceRateDraft      Float?                     // NEW: Draft field for approval workflow
   applicationFee           Int?
   commonAppAccepted        Boolean                    @default(false)
   applicationDeadline      DateTime?
+  applicationDeadlineDraft DateTime?                  // NEW: Draft field
   earlyDecisionDeadline    DateTime?
+  earlyDecisionDeadlineDraft DateTime?                // NEW: Draft field
   testPolicy               TestPolicy?
   minGpa                   Float?
+  minGpaDraft              Float?                     // NEW: Draft field
   avgGpa                   Float?
+  avgGpaDraft              Float?                     // NEW: Draft field
   satMath25                Int?
+  satMath25Draft           Int?                       // NEW: Draft field
   satMath75                Int?
+  satMath75Draft           Int?                       // NEW: Draft field
   satVerbal25              Int?
+  satVerbal25Draft         Int?                       // NEW: Draft field
   satVerbal75              Int?
+  satVerbal75Draft         Int?                       // NEW: Draft field
   actComposite25           Int?
+  actComposite25Draft      Int?                       // NEW: Draft field
   actComposite75           Int?
+  actComposite75Draft      Int?                       // NEW: Draft field
   avgSatScore              Int?
+  avgSatScoreDraft         Int?                       // NEW: Draft field
   avgActScore              Int?
+  avgActScoreDraft         Int?                       // NEW: Draft field
   internationalEngReqs     Json?
   tuitionInState           Int?
+  tuitionInStateDraft      Int?                       // NEW: Draft field
   tuitionOutState          Int?
+  tuitionOutStateDraft     Int?                       // NEW: Draft field
   tuitionInternational     Int?
+  tuitionInternationalDraft Int?                      // NEW: Draft field
   roomAndBoard             Int?
+  roomAndBoardDraft        Int?                       // NEW: Draft field
   booksAndSupplies         Int?
+  booksAndSuppliesDraft    Int?                       // NEW: Draft field
   costOfLiving             Int?
+  costOfLivingDraft        Int?                       // NEW: Draft field
   percentReceivingAid      Float?
   averageGrantAid          Int?
   averageNetPrice          Int?
   scholarshipsIntl         Boolean                    @default(false)
   needBlindAdmission       Boolean                    @default(false)
   studentPopulation        Int?
+  studentPopulationDraft   Int?                       // NEW: Draft field
   undergraduatePopulation  Int?
   graduatePopulation       Int?
   studentFacultyRatio      Float?
@@ -162,6 +184,13 @@ model University {
   researchOutputScore      Float?
   studentSatisfactionScore Float?
   timeToEmploymentMonths   Int?
+  
+  // NEW (P29): Full-Text Search Indexing Fields
+  // searchVector stores concatenated, pre-processed text from all Soft Blocks for FTS
+  // For full PostgreSQL FTS performance, this should be of type 'tsvector', which requires a raw migration
+  searchVector             String?
+  searchVectorUpdatedAt    DateTime?
+  
   riskAssessments          ComparisonRiskAssessment[]
   microContent             MicroContent[]
   reviews                  Review[]
@@ -549,21 +578,28 @@ model UniversityGroup {
 }
 
 model MicroContent {
-  id           String     @id @default(uuid())
-  universityId String
-  blockType    String     @default("rich_text_block") // Type of block (deadline_card, announcement_banner, etc.)
-  title        String
-  data         Json       @default("{}") // Flexible JSON storage for block-specific data
-  priority     Int        @default(0)
-  isActive     Boolean    @default(true)
-  category     String?    // Optional categorization (deprecated but kept for backward compatibility)
-  content      String?    // Deprecated: kept for backward compatibility with old blocks
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  university   University @relation(fields: [universityId], references: [id])
+  id               String               @id @default(uuid())
+  universityId     String
+  blockType        String               @default("rich_text_block")
+  title            String
+  data             Json                 @default("{}")
+  priority         Int                  @default(0)
+  isActive         Boolean              @default(true)
+  isHard           Boolean              @default(false) // NEW: Flag for mandatory/non-deletable UI blocks (e.g., Location, About)
+  canonicalMapping String?              // NEW: The specific University column this block writes to (e.g., 'acceptanceRate')
+  templateId       String?              // NEW: Link to a GlobalBlockTemplate for inherited content
+
+  category         String?
+  content          String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  
+  university       University           @relation(fields: [universityId], references: [id])
+  template         GlobalBlockTemplate? @relation(fields: [templateId], references: [id]) // NEW relation
 
   @@index([universityId])
   @@index([blockType])
+  @@index([templateId])
 }
 
 model StaticPage {
@@ -742,6 +778,24 @@ model ClaimMessage {
   @@index([senderId])
 }
 
+// NEW Model: Global Block Templates for reusable soft content
+model GlobalBlockTemplate {
+  id               String           @id @default(uuid())
+  name             String
+  blockType        String           // Type of block (checklist, faq, etc.)
+  description      String?
+  data             Json             @default("{}") // The reusable content data
+  category         String?
+  isSystem         Boolean          @default(false) // Flag for system-locked templates (like the standard checklist)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  contentInstances MicroContent[] // Blocks using this template
+
+  @@index([blockType])
+  @@index([isSystem])
+}
+
 enum UserRole {
   USER
   ADMIN
@@ -811,6 +865,7 @@ enum ClaimType {
   ALUMNI
   STUDENT
   ADMINISTRATIVE_STAFF
+  DATA_UPDATE
 }
 
 enum DocumentStatus {
@@ -894,15 +949,18 @@ model EngagementEvent {
   id         String   @id @default(uuid())
   userId     String?  // null for anonymous
   sessionId  String
-  eventType  String   // 'click', 'share', 'download', 'search', 'like', 'comment', 'save', 'compare'
+  eventType  String   // 'click', 'share', 'download', 'search', 'like', 'comment', 'save', 'compare', 'block_vote', 'block_toggle', 'block_cta_click', etc.
   entityType String?  // 'article', 'university', 'group'
   entityId   String?
-  metadata   Json?    // additional context (e.g., search query, button clicked)
+  blockId    String?  // The ID of the MicroContent block
+  blockType  String?  // The type of MicroContent block (e.g., 'quick_poll_survey', 'checklist')
+  metadata   Json?    // additional context (e.g., search query, button clicked, option selected, item toggled)
   createdAt  DateTime @default(now())
 
   @@index([eventType])
   @@index([userId])
   @@index([entityType, entityId])
+  @@index([blockId])
   @@index([createdAt])
 }
 

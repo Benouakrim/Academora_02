@@ -7,6 +7,7 @@ interface ICacheAdapter {
   get<T>(key: string): T | undefined;
   set(key: string, value: any, ttl: number): void;
   del(key: string): boolean;
+  delMany(keys: string[]): void;
   clear(): void;
 }
 
@@ -64,6 +65,10 @@ class InMemoryCacheAdapter implements ICacheAdapter {
 
   del(key: string): boolean {
     return this.cache.delete(key);
+  }
+
+  delMany(keys: string[]): void {
+    keys.forEach(key => this.cache.delete(key));
   }
 
   clear(): void {
@@ -139,6 +144,7 @@ export const Cache: ICacheAdapter = new InMemoryCacheAdapter();
 export const get = <T>(key: string): T | undefined => Cache.get<T>(key);
 export const set = (key: string, value: any, ttl: number = TTL_LONG): void => Cache.set(key, value, ttl);
 export const del = (key: string): boolean => Cache.del(key);
+export const delMany = (keys: string[]): void => Cache.delMany(keys);
 export const clear = (): void => Cache.clear();
 
 // HINT TO USER: You should call Cache.connect() in server/src/index.ts before starting the server.

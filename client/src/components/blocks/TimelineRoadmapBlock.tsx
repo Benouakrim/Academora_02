@@ -22,7 +22,7 @@ export default function TimelineRoadmapBlock({ block }: Props) {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {data.steps.map((step, index) => (
+          {(data.steps ?? []).map((step, index) => (
             <div key={step.id} className="flex gap-4">
               <div className="flex flex-col items-center">
                 <div className={`rounded-full p-2 ${

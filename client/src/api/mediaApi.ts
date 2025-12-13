@@ -14,6 +14,15 @@ export interface Video {
   updatedAt: string;
 }
 
+// NEW (Prompt 22): Media Asset interface for unified media library
+export interface MediaAsset {
+  id: string;
+  url: string;
+  publicId: string;
+  type: 'image' | 'video';
+  altText: string;
+}
+
 export interface UploadImageResponse {
   success: boolean;
   imageUrl: string;
@@ -145,6 +154,25 @@ class MediaAPI {
       { updates }
     );
     return data.data;
+  }
+
+  // NEW (Prompt 22): Fetch media assets for the media picker modal
+  /**
+   * Fetches all media assets from the server media library.
+   * Supports filtering by type (image or video).
+   */
+  async fetchMediaAssets(type?: 'image' | 'video'): Promise<MediaAsset[]> {
+    try {
+      const params = type ? { type } : {};
+      const { data } = await api.get<{ success: boolean; data: MediaAsset[] }>(
+        '/media/assets',
+        { params }
+      );
+      return data.data || [];
+    } catch (error) {
+      console.error('Error fetching media assets:', error);
+      return [];
+    }
   }
 }
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NodeViewWrapper } from '@tiptap/react';
 import { Table, Plus, Trash2, GripVertical } from 'lucide-react';
+import ComparisonDisplay from '@/components/smart-blocks/ComparisonDisplay';
 import type { ComparisonAttributes, ComparisonColumn } from '../types/BlockTypes';
 
 interface ComparisonViewProps {
@@ -93,12 +94,13 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({
       className={`comparison-node-view ${selected ? 'selected' : ''}`}
       data-drag-handle
     >
-      <div className="relative group border-2 border-gray-200 rounded-lg p-4 bg-white hover:border-orange-300 transition-colors">
-        <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab">
+      <div className="relative group border-2 border-gray-200 rounded-lg bg-white hover:border-orange-300 transition-colors">
+        {/* Editor Controls */}
+        <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab z-10">
           <GripVertical className="w-5 h-5 text-gray-400" />
         </div>
 
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
           <button
             onClick={deleteNode}
             className="p-1 hover:bg-red-100 rounded text-red-600"
@@ -108,114 +110,77 @@ const ComparisonView: React.FC<ComparisonViewProps> = ({
           </button>
         </div>
 
-        <div className="flex items-center gap-2 mb-4 pt-6">
-          <Table className="w-6 h-6 text-orange-600" />
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            className="flex-1 text-xl font-bold border-b-2 border-transparent hover:border-gray-300 focus:border-orange-500 focus:outline-none px-2 py-1"
-            placeholder="Comparison title..."
-          />
-        </div>
+        <div className="p-4">
+          {/* Editable Title */}
+          <div className="flex items-center gap-2 mb-4">
+            <Table className="w-6 h-6 text-orange-600" />
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              className="flex-1 text-xl font-bold border-b-2 border-transparent hover:border-gray-300 focus:border-orange-500 focus:outline-none px-2 py-1"
+              placeholder="Comparison title..."
+            />
+          </div>
 
-        <div className="overflow-x-auto ml-2">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                {columns.map((col) => (
-                  <th
+          {/* Shared ComparisonDisplay Component */}
+          <ComparisonDisplay
+            title=""
+            columns={columns ?? []}
+            className="mb-4"
+          />
+
+          {/* Column/Row Management Controls (shown on hover) */}
+          <div className="relative group/controls">
+            <div className="opacity-0 group-hover/controls:opacity-100 transition-opacity">
+              <div className="space-y-2 p-2 bg-gray-50 rounded border border-gray-200">
+                <div className="text-xs font-semibold text-gray-700 mb-2">Columns:</div>
+                {(columns ?? []).map((col) => (
+                  <div
                     key={col.id}
-                    className="relative group/header border-2 border-gray-300 bg-orange-50 p-2"
+                    className="flex items-center justify-between gap-2 p-1 bg-white rounded"
                   >
-                    {editingHeader === col.id ? (
-                      <input
-                        type="text"
-                        value={col.header}
-                        onChange={(e) => handleHeaderChange(col.id, e.target.value)}
-                        onBlur={() => setEditingHeader(null)}
-                        autoFocus
-                        className="w-full border border-gray-300 rounded px-2 py-1 font-semibold"
-                      />
-                    ) : (
-                      <div
-                        onClick={() => setEditingHeader(col.id)}
-                        className="cursor-text font-semibold"
-                      >
-                        {col.header}
-                      </div>
-                    )}
+                    <span className="text-sm text-gray-700">{col.header}</span>
                     <button
                       onClick={() => removeColumn(col.id)}
-                      className="absolute -top-2 -right-2 p-1 bg-red-100 hover:bg-red-200 rounded-full text-red-600 opacity-0 group-hover/header:opacity-100 transition-opacity"
+                      className="p-1 hover:bg-red-100 rounded text-red-600"
                       title="Remove column"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
-                  </th>
+                  </div>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: maxRows }).map((_, rowIndex) => (
-                <tr key={rowIndex} className="group/row">
-                  {columns.map((col) => (
-                    <td
-                      key={col.id}
-                      className="border-2 border-gray-300 p-2 relative group/cell"
-                    >
-                      {editingCell?.colId === col.id &&
-                      editingCell?.cellIndex === rowIndex ? (
-                        <input
-                          type="text"
-                          value={col.cells[rowIndex] || ''}
-                          onChange={(e) =>
-                            handleCellChange(col.id, rowIndex, e.target.value)
-                          }
-                          onBlur={() => setEditingCell(null)}
-                          autoFocus
-                          className="w-full border border-gray-300 rounded px-2 py-1"
-                        />
-                      ) : (
-                        <div
-                          onClick={() => setEditingCell({ colId: col.id, cellIndex: rowIndex })}
-                          className="cursor-text min-h-[24px]"
-                        >
-                          {col.cells[rowIndex] || ''}
-                        </div>
-                      )}
-                    </td>
-                  ))}
-                  <td className="pl-2">
-                    <button
-                      onClick={() => removeRow(rowIndex)}
-                      className="p-1 hover:bg-red-100 rounded text-red-600 opacity-0 group-hover/row:opacity-100 transition-opacity"
-                      title="Remove row"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
 
-        <div className="flex gap-2 mt-3">
-          <button
-            onClick={addColumn}
-            className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 px-3 py-2 rounded transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">Add column</span>
-          </button>
-          <button
-            onClick={addRow}
-            className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 px-3 py-2 rounded transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">Add row</span>
-          </button>
+                <div className="text-xs font-semibold text-gray-700 mt-3 mb-2">Rows: {maxRows}</div>
+                <button
+                  onClick={() => removeRow(maxRows - 1)}
+                  disabled={maxRows <= 1}
+                  className="w-full p-1 text-xs text-red-600 hover:bg-red-100 rounded disabled:opacity-30"
+                  title="Remove last row"
+                >
+                  Remove Last Row
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Add Controls */}
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={addColumn}
+              className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 px-3 py-2 rounded transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm font-medium">Add column</span>
+            </button>
+            <button
+              onClick={addRow}
+              className="flex items-center gap-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 px-3 py-2 rounded transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm font-medium">Add row</span>
+            </button>
+          </div>
         </div>
       </div>
     </NodeViewWrapper>

@@ -100,12 +100,14 @@ export default function ArticleEditorLayout() {
   }, [predictionHistory])
 
   // Fetch Taxonomies
-  const { data: taxonomies } = useQuery({
+  const { data: taxonomies, isLoading: isLoadingTaxonomies, error: taxonomiesError } = useQuery({
     queryKey: ['taxonomies'],
     queryFn: async () => {
       const res = await api.get('/articles/taxonomies')
       return res.data
-    }
+    },
+    retry: 2,
+    staleTime: 5 * 60 * 1000
   })
 
   // Fetch Article if Editing
@@ -218,30 +220,43 @@ export default function ArticleEditorLayout() {
   }, [form, mutation])
 
   const onSubmit = (data: FormData) => {
-      // Issue #1: Validate required fields before submission
-      const errors: Record<string, string> = {}
-  
-      if (!data.title?.trim()) {
-        errors.title = 'Title is required'
-      }
-      if (!data.content?.trim()) {
-        errors.content = 'Content is required'
-      }
-      if (!data.categoryId?.trim()) {
-        errors.categoryId = 'Category is required'
-      }
-      if (!data.slug?.trim()) {
-        errors.slug = 'Slug is required'
-      }
-  
-      // If submitting for review and there are validation errors, show them
-      if ((data.status === 'PENDING' || data.status === 'PUBLISHED') && Object.keys(errors).length > 0) {
-        Object.entries(errors).forEach(([field, message]) => {
-          toast.error(`${field}: ${message}`)
-        })
-        return
-      }
-  
+    // Validate required fields before submission
+    const errors: Record<string, string> = {}
+
+    if (!data.title?.trim()) {
+      errors.title = 'Title is required'
+    } else if (data.title.length < 5) {
+      errors.title = 'Title must be at least 5 characters'
+    } else if (data.title.length > 150) {
+      errors.title = 'Title must be less than 150 characters'
+    }
+
+    if (!data.content?.trim()) {
+      errors.content = 'Content is required'
+    } else if (data.content.length < 20) {
+      errors.content = 'Content must be at least 20 characters'
+    }
+
+    if (!data.categoryId?.trim()) {
+      errors.categoryId = 'Category is required'
+    }
+
+    if (!data.slug?.trim()) {
+      errors.slug = 'Slug is required'
+    } else if (data.slug.length < 5) {
+      errors.slug = 'Slug must be at least 5 characters'
+    } else if (!/^[a-z0-9-]+$/.test(data.slug)) {
+      errors.slug = 'Slug must contain only lowercase letters, numbers, and hyphens'
+    }
+
+    // Show all validation errors
+    if (Object.keys(errors).length > 0) {
+      Object.entries(errors).forEach(([field, message]) => {
+        toast.error(`${field}: ${message}`)
+      })
+      return
+    }
+
     mutation.mutate(data)
     if (data.status === 'PUBLISHED') {
       navigate('/admin/articles')
@@ -489,16 +504,22 @@ export default function ArticleEditorLayout() {
                     <Controller
                       control={form.control}
                       name="categoryId"
-                      rules={{ required: true }}
-                      render={({ field }) => (
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select Category" />
+                        rules={{ required: 'Category is required' }}
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className={isLoadingTaxonomies ? 'opacity-50 cursor-not-allowed' : ''}>
+                              <SelectValue placeholder={isLoadingTaxonomies ? 'Loading categories...' : 'Select Category'} />
                           </SelectTrigger>
                           <SelectContent>
-                            {taxonomies?.categories.map((c: any) => (
-                              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                            ))}
+                            {taxonomiesError ? (
+                              <div className="p-2 text-sm text-destructive">Failed to load categories</div>
+                            ) : taxonomies?.categories && taxonomies.categories.length > 0 ? (
+                              taxonomies.categories.map((c: any) => (
+                                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                              ))
+                            ) : (
+                              <div className="p-2 text-sm text-muted-foreground">{isLoadingTaxonomies ? 'Loading...' : 'No categories available'}</div>
+                            )}
                           </SelectContent>
                         </Select>
                       )}

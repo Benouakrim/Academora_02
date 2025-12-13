@@ -1,6 +1,7 @@
 // client/src/components/blocks/VideoEmbedBlock.tsx
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Video as VideoIcon } from 'lucide-react';
 import type { VideoEmbedBlock as VideoEmbedBlockType } from '@/../../shared/types/microContentBlocks';
 
 interface Props {
@@ -8,19 +9,8 @@ interface Props {
   isPreview?: boolean;
 }
 
-function getEmbedUrl(url: string, provider: string, videoId?: string): string {
-  if (provider === 'youtube' && videoId) {
-    return `https://www.youtube.com/embed/${videoId}`;
-  }
-  if (provider === 'vimeo' && videoId) {
-    return `https://player.vimeo.com/video/${videoId}`;
-  }
-  return url;
-}
-
 export default function VideoEmbedBlock({ block }: Props) {
   const { data } = block;
-  const embedUrl = getEmbedUrl(data.videoUrl, data.provider, data.videoId);
 
   return (
     <Card>
@@ -31,21 +21,18 @@ export default function VideoEmbedBlock({ block }: Props) {
       )}
       <CardContent className={block.title ? undefined : 'pt-6'}>
         <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
-          {data.provider === 'internal' && data.videoUrl ? (
+          {data.videoUrl ? (
             <video
               src={data.videoUrl}
               controls
               autoPlay={data.autoplay}
               className="w-full h-full"
+              poster={data.thumbnail}
             />
           ) : (
-            <iframe
-              src={embedUrl}
-              title={block.title}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+            <div className="flex items-center justify-center h-full bg-gray-800">
+              <VideoIcon className="h-12 w-12 text-gray-400" />
+            </div>
           )}
         </div>
         {data.caption && (

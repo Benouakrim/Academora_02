@@ -34,6 +34,17 @@ interface SearchEventData {
   filters?: Record<string, unknown>;
 }
 
+interface BlockEngagementPayload {
+  blockId: string;
+  blockType: string;
+  universityId?: string;
+  articleId?: string;
+  eventType: string;
+  metadata?: Record<string, any>;
+  sessionId: string;
+  userId?: string;
+}
+
 export class AnalyticsTrackingService {
   /**
    * Track a page view
@@ -106,6 +117,45 @@ export class AnalyticsTrackingService {
       return event;
     } catch (error) {
       console.error('Error tracking engagement event:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Track user interaction events specific to Micro-Content Blocks.
+   */
+  static async trackBlockEngagement(payload: BlockEngagementPayload) {
+    try {
+      const { 
+        blockId, 
+        blockType, 
+        universityId, 
+        articleId, 
+        eventType, 
+        metadata, 
+        sessionId, 
+        userId 
+      } = payload;
+      
+      const entityType = universityId ? 'university' : articleId ? 'article' : undefined;
+      const entityId = universityId || articleId;
+
+      const event = await prisma.engagementEvent.create({
+        data: {
+          userId,
+          sessionId,
+          eventType,
+          entityType,
+          entityId,
+          ...(blockId && { blockId }),
+          ...(blockType && { blockType }),
+          metadata: metadata ? (metadata as any) : undefined,
+        } as any,
+      });
+
+      return event;
+    } catch (error) {
+      console.error('Error tracking block engagement:', error);
       throw error;
     }
   }

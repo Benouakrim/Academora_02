@@ -1,14 +1,12 @@
 import { useParams, Link } from 'react-router-dom'
 import { AlertCircle, ArrowLeft } from 'lucide-react'
-import { useUniversityDetail } from '@/hooks/useUniversityDetail'
 import { useAnalyticsTracking } from '@/hooks/useAnalyticsTracking'
 import { useEffect } from 'react'
-import UniversityHeader from './UniversityHeader'
-import UniversityTabs from './UniversityTabs'
-import { useState } from 'react';
-import { FinancialAidDialog } from '@/components/calculator/FinancialAidDialog';
+import BlockRenderer from '@/components/blocks/BlockRenderer'
+import { useFullUniversityProfile } from '@/hooks/useFullUniversityProfile'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import UniversityHeader from './UniversityHeader'
 
 function LoadingSkeleton() {
   return (
@@ -31,6 +29,7 @@ function LoadingSkeleton() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-4">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-96 w-full" />
       </div>
     </div>
   )
@@ -56,49 +55,91 @@ function NotFound() {
   )
 }
 
+/**
+ * UniversityPage: Public University Profile
+ * 
+ * Consumes the merged, cached university profile (Prompt 9) and renders:
+ * 1. Static header with university metadata (canonical data)
+ * 2. Dynamic blocks (Hard & Soft) ordered by priority
+ * 3. Personalized inverse blocks (e.g., UserFitMeter)
+ * 
+ * Benefits:
+ * - Single API request for all content
+ * - Server-side caching (60 minutes)
+ * - Complete data for both canonical and inverse blocks
+ * - Personalization via user store integration
+ */
 export default function UniversityPage() {
   const { slug } = useParams<{ slug: string }>()
-  const { data: university, isLoading, isError } = useUniversityDetail(slug || '')
-  const [isCalculatorOpen, setCalculatorOpen] = useState(false);
   const { trackPageView } = useAnalyticsTracking();
+  
+  // Fetch merged profile: canonical data + blocks + user data
+  const { 
+    profile, 
+    universityData, 
+    blocks, 
+    userProfile, 
+    isLoading, 
+    isError, 
+    error 
+  } = useFullUniversityProfile(slug || '')
 
-  // Track university page view
+  // Track page view
   useEffect(() => {
-    if (university?.id && slug) {
+    if (universityData?.id && slug) {
       trackPageView({
         entityType: 'university',
-        entityId: university.id,
-        title: university.name,
+        entityId: universityData.id,
+        title: universityData.name,
         metadata: {
           slug,
-          state: university.state,
-          type: university.type
+          state: universityData.state,
+          type: universityData.campusType
         }
       });
     }
-  }, [university?.id, slug, trackPageView]);
+  }, [universityData?.id, slug, trackPageView, universityData]);
 
-  if (isLoading) {
+  if (!slug || isLoading) {
     return <LoadingSkeleton />
   }
 
-  if (isError || !university) {
-    return <NotFound />
+  if (isError || !profile) {
+    return (
+      <NotFound />
+    )
   }
+  
+  // Destructure the canonical data and micro-content array
+  const canonicalData = universityData
+  const blockList = blocks
 
   return (
-    <div>
-      <UniversityHeader university={university} />
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mt-4 flex justify-end">
-        <Button variant="outline" onClick={() => setCalculatorOpen(true)}>Calculate Your Net Price</Button>
+    <div className="min-h-screen bg-gray-50">
+      {/* 1. Static Header using Canonical Scalar Data */}
+      {canonicalData && <UniversityHeader university={canonicalData} />}
+      
+      {/* 2. Content Blocks from the Merged Entity API */}
+      <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+        {blockList.length > 0 ? (
+          blockList.map((block) => (
+            <div key={block.id || Math.random()} className="w-full">
+              <BlockRenderer
+                block={block}
+                // Pass the full canonical and user profiles for Inverse Blocks
+                universityProfile={canonicalData}
+                userProfile={userProfile}
+                isPreview={false}
+              />
+            </div>
+          ))
+        ) : (
+          <div className="text-center p-20 text-gray-500 border-2 border-dashed rounded-lg">
+            <p className="mb-2">No blocks configured for this university yet.</p>
+            <p className="text-sm">Check back soon for content from the university team.</p>
+          </div>
+        )}
       </div>
-      <UniversityTabs university={university} />
-      <FinancialAidDialog
-        universityId={university.id}
-        isOpen={isCalculatorOpen}
-        onClose={() => setCalculatorOpen(false)}
-        stickerPrice={university.tuitionOutState || university.tuitionInState || 50000}
-      />
     </div>
   )
 }

@@ -257,4 +257,258 @@ export class SyncService {
       sample,
     };
   }
+
+  /**
+   * Orchestrates all daily synchronization and maintenance tasks.
+   * This method should be called by a cron job or scheduled task runner.
+   * 
+   * Tasks performed:
+   * 1. Recalculate derived metrics (Diversity Score, ROI Percentage)
+   * 2. Archive/Remove expired soft content (announcements, deadlines)
+   * 3. Full-Text Search Indexing (P29) - Soft Block text extraction and search vector building
+   * 
+   * NEW (Prompt 16): Core automated synchronization system for canonical data.
+   * NEW (Prompt 29): Full-text search indexing integration.
+   * 
+   * @returns Promise resolves when all sync tasks are complete
+   */
+  static async runDailySync(): Promise<void> {
+    console.log('[SyncService] Starting Daily Sync Service...');
+    const startTime = Date.now();
+
+    try {
+      // Fetch only the necessary fields for calculation and identification
+      const universities = await prisma.university.findMany({
+        select: {
+          id: true,
+          slug: true,
+          percentMale: true,
+          percentFemale: true,
+          percentInternational: true,
+          tuitionOutState: true,
+          alumniEarnings10Years: true,
+        },
+      });
+
+      console.log(`[SyncService] Found ${universities.length} universities to process.`);
+
+      // 1. Recalculate core derived metrics (Diversity, ROI)
+      await this.recalculateUniversityMetrics(universities);
+
+      // 2. Archive/Remove expired soft content (e.g., Announcements, Deadlines)
+      await this.archiveExpiredMicroContent();
+
+      // 3. NEW (P29): Full-Text Search Indexing - Index all soft block content
+      await this.runSearchIndexing(universities.map(u => u.id));
+
+      const duration = Date.now() - startTime;
+      console.log(`[SyncService] Daily Sync Service completed in ${duration}ms.`);
+    } catch (err) {
+      console.error('[SyncService] Error during daily sync:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Runs the full-text search indexer for all universities.
+   * This task extracts text from Soft Blocks and builds search vectors
+   * for improved full-text search discoverability.
+   * 
+   * Batch processing is used to avoid database connection pool exhaustion.
+   * Individual failures do not stop the entire process.
+   * 
+   * @param universityIds Array of university IDs to index
+   */
+  private static async runSearchIndexing(universityIds: string[]): Promise<void> {
+    console.log('[SyncService] Starting Full-Text Search Indexing...');
+    
+    try {
+      const { SearchIndexingService } = await import('./SearchIndexingService');
+      
+      // Batch indexing for high efficiency (10 at a time)
+      const results = await SearchIndexingService.indexMultipleUniversities(universityIds, 10);
+      
+      console.log(`[SyncService] Search Indexing completed. Succeeded: ${results.succeeded}, Failed: ${results.failed}`);
+      
+      if (results.errors.length > 0) {
+        console.warn('[SyncService] Search Indexing errors:', results.errors);
+      }
+    } catch (err) {
+      console.error('[SyncService] Error during search indexing:', err);
+      // Do not re-throw, allow sync to continue
+    }
+  }
+
+
+  /**
+   * Recalculates derived scalar fields (Diversity Score, ROI Percentage) for all universities.
+   * 
+   * Diversity Score: Combines demographic balance (male/female) and international population.
+   * - Range: 0 to 1
+   * - Formula: (1 - demographicVariance) * 0.7 + international * 0.3
+   * - Higher score = more diverse student body
+   * 
+   * ROI Percentage: Return on Investment for alumni earnings vs tuition cost.
+   * - Calculated as: ((Total Earnings after 10 years - 4-year Cost) / 4-year Cost) * 100
+   * - Positive = good investment, Negative = poor investment
+   * 
+   * @param universities Array of universities with demographic and financial data
+   */
+  private static async recalculateUniversityMetrics(universities: any[]): Promise<void> {
+    console.log(`[SyncService] Recalculating metrics for ${universities.length} universities...`);
+
+    let updatedCount = 0;
+    const errors: Array<{ universityId: string; error: string }> = [];
+
+    for (const uni of universities) {
+      try {
+        const updateData: Record<string, any> = {};
+
+        // ============================================================
+        // 1. DIVERSITY SCORE Calculation (0 to 1)
+        // ============================================================
+        // Combines:
+        // - Gender balance (70% weight): how close to 50/50 male/female split
+        // - International population (30% weight): percentage of international students
+
+        const percentMale = uni.percentMale ?? 0.5;
+        const percentFemale = uni.percentFemale ?? 0.5;
+        const international = uni.percentInternational ?? 0;
+
+        // Calculate variance from ideal (0.5 male/female)
+        // If one is 0.6, other is 0.4, variance = 0.1 + 0.1 = 0.2 (less diverse)
+        // If both are 0.5, variance = 0 (perfectly balanced)
+        const demographicVariance = Math.abs(percentMale - 0.5) + Math.abs(percentFemale - 0.5);
+
+        // Combine gender balance (70%) and international representation (30%)
+        // Result scaled to 0-1 range, then converted to 0-100 percentage
+        const diversityScore = Math.round((1 - demographicVariance) * 0.7 + international * 0.3) / 100;
+        updateData.diversityScore = diversityScore;
+
+        // ============================================================
+        // 2. ROI PERCENTAGE Calculation
+        // ============================================================
+        // Helps students understand financial return on education investment
+        // Formula: ((Total Earnings after 10 years - 4-year Cost) / 4-year Cost) * 100
+
+        const earnings = uni.alumniEarnings10Years;
+        const cost = uni.tuitionOutState;
+
+        if (earnings && cost && cost > 0) {
+          // 4-year total cost = annual tuition * 4
+          const fourYearCost = cost * 4;
+
+          // Net gain = total earnings - cost invested
+          const netGain = earnings - fourYearCost;
+
+          // ROI = (net gain / cost invested) * 100
+          const roi = (netGain / fourYearCost) * 100;
+
+          // Round to 2 decimal places
+          updateData.ROIPercentage = Math.round(roi * 100) / 100;
+        }
+
+        // ============================================================
+        // 3. Update Database if metrics changed
+        // ============================================================
+        if (Object.keys(updateData).length > 0) {
+          await prisma.university.update({
+            where: { id: uni.id },
+            data: updateData,
+          });
+
+          updatedCount++;
+
+          // Crucial for freshness: invalidate the profile cache
+          // This ensures the next request gets fresh calculated data
+          const { UniversityProfileService } = await import('./UniversityProfileService');
+          await UniversityProfileService.invalidateProfileCache(uni.slug);
+        }
+      } catch (err) {
+        errors.push({
+          universityId: uni.id || 'unknown',
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
+    console.log(
+      `[SyncService] Updated metrics for ${updatedCount} universities. Errors: ${errors.length}`
+    );
+
+    if (errors.length > 0) {
+      console.error('[SyncService] Metric calculation errors:', errors);
+    }
+  }
+
+  /**
+   * Cleans up MicroContent blocks (announcements, deadlines) that have passed their expiresAt date.
+   * 
+   * Archived blocks:
+   * - Set isActive = false (soft delete)
+   * - Prepend "[ARCHIVED]" to title for visibility
+   * - Trigger cache invalidation for affected universities
+   * 
+   * Note: This handles expiration for soft-content blocks that have time-based expiration.
+   * Hard blocks (canonical data) are not affected by this cleanup.
+   */
+  private static async archiveExpiredMicroContent(): Promise<void> {
+    const now = new Date();
+
+    try {
+      // Find blocks that are likely to have expiration (announcement/deadline types)
+      // These are soft-content blocks with potentially embedded expiresAt dates in their JSON data
+      const potentiallyExpiredBlocks = await prisma.microContent.findMany({
+        where: {
+          blockType: { in: ['deadline_card', 'announcement_banner'] },
+          isActive: true,
+        },
+        include: {
+          university: { select: { slug: true } },
+        },
+      });
+
+      const slugsToInvalidate = new Set<string>();
+      let archivedCount = 0;
+
+      // Check each block's data for expiresAt field
+      for (const block of potentiallyExpiredBlocks) {
+        const blockData = block.data as Record<string, any> | null;
+        const expiresAt = blockData?.expiresAt as string | undefined;
+
+        // If block has expiresAt and it's in the past, archive it
+        if (expiresAt) {
+          const expirationDate = new Date(expiresAt);
+
+          if (expirationDate < now) {
+            // Archive the block (soft delete)
+            await prisma.microContent.update({
+              where: { id: block.id },
+              data: {
+                isActive: false,
+                title: `[ARCHIVED] ${block.title}`,
+              },
+            });
+
+            slugsToInvalidate.add(block.university.slug);
+            archivedCount++;
+          }
+        }
+      }
+
+      // Invalidate cache only for affected universities
+      for (const slug of slugsToInvalidate) {
+        const { UniversityProfileService } = await import('./UniversityProfileService');
+        await UniversityProfileService.invalidateProfileCache(slug);
+      }
+
+      console.log(
+        `[SyncService] Archived ${archivedCount} expired micro-content blocks. ` +
+        `Cache invalidated for ${slugsToInvalidate.size} universities.`
+      );
+    } catch (err) {
+      console.error('[SyncService] Error archiving expired content:', err);
+      throw err;
+    }
+  }
 }

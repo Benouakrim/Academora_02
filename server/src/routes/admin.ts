@@ -1,10 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express'
-import { getStats } from '../controllers/adminController'
+import { getStats, runManualSync } from '../controllers/adminController'
 import { requireAdmin } from '../middleware/requireAdmin'
 import { validate } from '../middleware/validate'
 import { reviewClaimSchema } from '../validation/claimSchemas'
 import * as ClaimController from '../controllers/ClaimController'
 import * as analyticsController from '../controllers/analyticsController'
+import * as TemplateController from '../controllers/globalTemplateController'
 import { SyncService } from '../services/SyncService'
 import { Cache } from '../lib/cache'
 import prisma from '../lib/prisma'
@@ -373,5 +374,33 @@ router.get('/referrals/export/csv', requireAdmin, async (req: Request, res: Resp
     next(err);
   }
 });
+
+// ==========================================
+// GLOBAL BLOCK TEMPLATES ROUTES (Prompt 14)
+// ==========================================
+// All routes restricted to Super Admins via requireAdmin middleware
+
+// Create a new global block template
+router.post('/templates', requireAdmin, TemplateController.createTemplate);
+
+// Get all global block templates
+router.get('/templates', requireAdmin, TemplateController.getAllTemplates);
+
+// Get a specific global block template by ID
+router.get('/templates/:id', requireAdmin, TemplateController.getTemplateById);
+
+// Update an existing global block template
+router.put('/templates/:id', requireAdmin, TemplateController.updateTemplate);
+
+// Delete a global block template
+router.delete('/templates/:id', requireAdmin, TemplateController.deleteTemplate);
+
+// ==========================================
+// AUTOMATED DATA SYNC ROUTES (Prompt 16)
+// ==========================================
+// Manual trigger for daily synchronization and maintenance tasks
+
+// POST /api/admin/sync/run-now - Trigger manual data sync
+router.post('/sync/run-now', requireAdmin, runManualSync);
 
 export default router

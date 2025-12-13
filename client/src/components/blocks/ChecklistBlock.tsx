@@ -20,7 +20,7 @@ export default function ChecklistBlock({ block, isPreview = false }: Props) {
   };
 
   const completedCount = Object.values(checkedItems).filter(Boolean).length;
-  const totalCount = data.items.length;
+  const totalCount = data.items?.length ?? 0;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   return (
@@ -53,7 +53,7 @@ export default function ChecklistBlock({ block, isPreview = false }: Props) {
           </div>
         )}
         <ul className="space-y-3">
-          {data.items.map((item) => (
+          {(data.items ?? []).map((item) => (
             <li key={item.id} className="flex items-start gap-3">
               <Checkbox
                 id={item.id}

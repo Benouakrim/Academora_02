@@ -22,7 +22,7 @@ export default function LinkListResourcesBlock({ block }: Props) {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {data.links.map((link) => (
+          {(data.links ?? []).map((link) => (
             <a
               key={link.id}
               href={link.url}

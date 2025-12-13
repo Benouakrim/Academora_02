@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth';
+import { requireAdmin } from '../middleware/requireAdmin';
 import { validate } from '../middleware/validate';
 import * as controller from '../controllers/ClaimController';
 import { 
@@ -36,5 +37,9 @@ router.delete('/:id', requireAuth, controller.deleteClaim);
 
 // PATCH /api/claims/:id/status - Update claim status (Admin only, but route is here for clarity)
 router.patch('/:id/status', requireAuth, validate(updateClaimStatusSchema), controller.updateClaimStatus);
+
+// NEW (Prompt 15): Super Admin approval of DATA_UPDATE claims
+// Atomically moves data from Draft to Live columns
+router.put('/:id/approve-data', requireAuth, requireAdmin, controller.approveDataUpdate);
 
 export default router;

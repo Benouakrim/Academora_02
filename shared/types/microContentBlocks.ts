@@ -1,6 +1,9 @@
 // shared/types/microContentBlocks.ts
 // Type definitions for all micro-content block types
 
+// NEW TYPE: Role-based access restriction for blocks
+export type BlockAccessRole = 'ADMIN_ONLY' | 'UNIVERSITY_ADMIN_PLUS';
+
 export type BlockType = 
   | 'deadline_card'
   | 'announcement_banner'
@@ -21,7 +24,11 @@ export type BlockType =
   | 'admissions_range_meter'
   | 'campus_map_poi'
   | 'badge_requirement'
-  | 'scholarship_spotlight';
+  | 'scholarship_spotlight'
+  | 'user_fit_meter'
+  | 'geographic_physical'
+  | 'outcome_metrics'
+  | 'historical_trends'; // NEW (Prompt 30) - Historical Trends Visualization
 
 // Base block interface
 export interface BaseBlock {
@@ -29,6 +36,8 @@ export interface BaseBlock {
   type: BlockType;
   title: string;
   priority?: number;
+  templateId?: string; // NEW (Prompt 14): ID of the GlobalBlockTemplate used to create this block
+  accessRole?: BlockAccessRole; // NEW (P27): Role restriction for visibility/editing access. ADMIN_ONLY = Super Admins only. UNIVERSITY_ADMIN_PLUS = visible to all editors.
 }
 
 // 1. Deadline Card
@@ -137,8 +146,8 @@ export interface TestimonialQuoteBlock extends BaseBlock {
 export interface ImageShowcaseBlock extends BaseBlock {
   type: 'image_showcase';
   data: {
-    mediaId?: string; // Reference to Media Library
-    imageUrl: string;
+    mediaId: string; // Canonical reference to Media Library (REQUIRED)
+    imageUrl?: string; // Resolved URL from Media Library (auto-populated by server)
     altText: string;
     caption?: string;
     aspectRatio?: '16:9' | '4:3' | '1:1' | 'auto';
@@ -151,10 +160,9 @@ export interface ImageShowcaseBlock extends BaseBlock {
 export interface VideoEmbedBlock extends BaseBlock {
   type: 'video_embed';
   data: {
-    videoUrl: string; // YouTube, Vimeo, or internal URL
-    provider: 'youtube' | 'vimeo' | 'internal';
-    videoId?: string;
-    thumbnail?: string;
+    mediaId: string; // Canonical reference to Media Library (REQUIRED)
+    videoUrl?: string; // Resolved URL from Media Library (auto-populated by server)
+    thumbnail?: string; // Optional: custom thumbnail ID or URL
     caption?: string;
     autoplay: boolean;
   };
@@ -231,15 +239,20 @@ export interface QuickPollSurveyBlock extends BaseBlock {
 export interface CostBreakdownChartBlock extends BaseBlock {
   type: 'cost_breakdown_chart';
   data: {
-    description?: string;
-    items: Array<{
-      id: string;
-      label: string;
-      amount: number;
-      color?: string;
-    }>;
-    total?: number;
+    // NEW PRIMITIVE INPUTS for Calculation (Data Wizard)
+    inStateTuition?: number;          // Base input for in-state tuition
+    outStateTuitionPremium?: number;  // Additional cost for out-of-state/international
+    feesAndInsurance?: number;        // Mandatory fees
+    
+    onCampusHousing?: number;         // Cost for housing (on-campus)
+    mealPlanCost?: number;            // Cost for food
+    
+    booksAndSuppliesEstimate?: number; // Books/Supplies for booksAndSupplies scalar
+    miscPersonalEstimate?: number;    // Miscellaneous personal expenses
+    
+    // Display/Utility
     currency: string;
+    description?: string;
   };
 }
 
@@ -247,13 +260,30 @@ export interface CostBreakdownChartBlock extends BaseBlock {
 export interface AdmissionsRangeMeterBlock extends BaseBlock {
   type: 'admissions_range_meter';
   data: {
-    metric: 'gpa' | 'sat' | 'act';
-    min: number;
-    percentile25: number;
-    percentile75: number;
-    max: number;
-    userValue?: number; // Optional user's value to highlight
+    // UI Configuration & Display
+    metric: 'gpa' | 'sat' | 'act' | 'acceptance'; // Added 'acceptance' as a display metric
     description?: string;
+
+    // RAW INPUTS (for Acceptance Rate Calculation)
+    totalApplications?: number; // New field for calculation input
+    totalAccepted?: number;     // New field for calculation input
+    
+    // SCALAR DATA INPUTS (Directly map to University columns)
+    // GPA
+    minGpa?: number;
+    avgGpa?: number;
+
+    // SAT (25th and 75th percentiles are the canonical inputs)
+    satMath25?: number;
+    satMath75?: number;
+    satVerbal25?: number;
+    satVerbal75?: number;
+    
+    // ACT
+    actComposite25?: number;
+    actComposite75?: number;
+    
+    // The calculated/saved acceptanceRate is NOT an input field here, but a result.
   };
 }
 
@@ -298,6 +328,91 @@ export interface ScholarshipSpotlightBlock extends BaseBlock {
   };
 }
 
+// 21. User Fit Meter (INVERSE BLOCK - Personalization)
+export interface UserFitMeterBlock extends BaseBlock {
+  type: 'user_fit_meter';
+  data: {
+    // Configuration for the metric to be compared against canonical data
+    metricToCompare: 'gpa' | 'sat' | 'act' | 'tuition';
+    // Display options
+    showComparisonText: boolean;
+    showNextStepsCta: boolean;
+    // Canonical data will be injected from the merged payload
+    canonicalValueField: string; // e.g., 'avgGpa'
+    canonicalValueLabel: string; // e.g., 'University Average'
+    
+    // User data keys (used for logic in the component)
+    userValueField: string; // e.g., 'gpa' from the user profile
+  };
+}
+
+// 22. Geographic / Physical Data - Canonical Writer Block (Prompt 13)
+export interface GeographicPhysicalBlock extends BaseBlock {
+  type: 'geographic_physical';
+  data: {
+    // RAW INPUTS (Address is the primitive input for geocoding)
+    address: string;
+    city: string;
+    state?: string;
+    zipCode?: string;
+    country: string;
+    
+    // INPUTS for Physical Details
+    campusSizeAcres?: number;
+    nearestAirportCode?: string; // e.g., 'LAX'
+    
+    // DISPLAY CONFIGURATION
+    showMap: boolean;
+    mapZoomLevel?: number;
+    
+    // Calculated fields (latitude, longitude, climateZone, nearestAirport, region) 
+    // are results of geocoding/lookups, populated by server in University table
+  };
+}
+
+// 23. Outcome Metrics - Canonical Writer Block (Prompt 21)
+export interface OutcomeMetricsBlock extends BaseBlock {
+  type: 'outcome_metrics';
+  data: {
+    // SCALAR DATA INPUTS (Directly map to University columns)
+    graduationRate: number;      // 0.0 to 1.0 (Percentage)
+    retentionRate: number;       // 0.0 to 1.0 (Percentage)
+    employmentRate: number;      // 0.0 to 1.0 (Percentage)
+    averageStartingSalary: number; // Raw integer amount
+    
+    // Auxiliary data (soft inputs not directly used by the engine, but useful for context)
+    postGraduationReportUrl?: string; 
+    topEmployers?: string[];
+    
+    // Display configuration
+    chartType: 'bar' | 'gauge';
+  };
+}
+
+// 24. Historical Trends (NEW - Prompt 30)
+// Visualizes aggregated, canonical data over time using UniversityMetricHistory
+export interface HistoricalTrendsBlock extends BaseBlock {
+  type: 'historical_trends';
+  data: {
+    // The metric to display over time
+    metric: 'acceptanceRate' | 'tuitionCost' | 'ranking' | 'employmentRate' | 'avgSalary';
+    
+    // Time range configuration
+    displayYears: number; // How many years of history to display (e.g., 5, 10)
+    
+    // Visualization style
+    chartStyle: 'line' | 'bar' | 'area';
+    
+    // Optional user comparison feature
+    // If true, overlays the user's target value on the chart (e.g., max budget)
+    showUserComparison: boolean;
+    
+    // Display options
+    showLegend: boolean;
+    showGridLines: boolean;
+  };
+}
+
 // Union type of all block types
 export type MicroContentBlock =
   | DeadlineCardBlock
@@ -319,7 +434,11 @@ export type MicroContentBlock =
   | AdmissionsRangeMeterBlock
   | CampusMapPOIBlock
   | BadgeRequirementBlock
-  | ScholarshipSpotlightBlock;
+  | ScholarshipSpotlightBlock
+  | UserFitMeterBlock
+  | GeographicPhysicalBlock
+  | OutcomeMetricsBlock
+  | HistoricalTrendsBlock; // ADDED (Prompt 30)
 
 // Helper type for block data
 export type BlockDataByType<T extends BlockType> = Extract<MicroContentBlock, { type: T }>['data'];
@@ -473,5 +592,35 @@ export const BLOCK_METADATA: Record<BlockType, BlockMetadata> = {
     description: 'Highlight specific scholarship',
     icon: 'DollarSign',
     category: 'content'
+  },
+  user_fit_meter: {
+    type: 'user_fit_meter',
+    label: 'User Fit Meter (Personalized)',
+    description: 'Compares student data (GPA, SAT) to university average',
+    icon: 'Target',
+    category: 'engagement'
+  },
+  geographic_physical: {
+    type: 'geographic_physical',
+    label: 'Geographic & Physical Profile',
+    description: 'Manages location, size, and climate data for the matching engine.',
+    icon: 'MapPin',
+    category: 'data'
+  },
+  outcome_metrics: {
+    type: 'outcome_metrics',
+    label: 'Student Outcomes & ROI',
+    description: 'Manages graduation, retention, and salary metrics for the matching engine.',
+    icon: 'Briefcase',
+    category: 'data'
+  },
+  historical_trends: {
+    type: 'historical_trends',
+    label: 'Historical Trends',
+    description: 'Visualize historical performance metrics over time',
+    icon: 'TrendingUp',
+    category: 'data'
   }
 };
+
+

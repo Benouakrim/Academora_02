@@ -12,6 +12,16 @@ router.post('/', requireAdmin, controller.create);
 // Must be before /:id to avoid being matched as :id = "reorder"
 router.patch('/reorder', requireAdmin, controller.reorder);
 
+// POST /api/micro-content/duplicate - Duplicate block to multiple universities (Admin only)
+// PROMPT 20: Multi-Block Batch Management
+// Must be before /:id to avoid being matched as :id = "duplicate"
+router.post('/duplicate', requireAdmin, controller.duplicateMicroContent);
+
+// DELETE /api/micro-content/bulk-delete - Bulk delete blocks (Admin only)
+// PROMPT 20: Multi-Block Batch Management
+// Must be before /:id to avoid being matched as :id = "bulk-delete"
+router.delete('/bulk-delete', requireAdmin, controller.bulkDeleteMicroContent);
+
 // GET /api/micro-content/university/:universityId - Get all micro-content for a university
 // Must be before /:id to avoid being matched as :id = "university"
 router.get('/university/:universityId', controller.getByUniversity);

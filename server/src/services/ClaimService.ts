@@ -820,4 +820,225 @@ export class ClaimService {
 
     return updatedDocument;
   }
+
+  /**
+   * Creates a claim specifically for a data update from a Canonical Block submission.
+   * This is used in Scenario 4 (Approval Workflow) when non-Super Admins submit data changes.
+   * 
+   * @param userId The ID of the user submitting the data (University Admin).
+   * @param universityId The ID of the university being updated.
+   * @param updateData An array of proposed changes (field, old, new).
+   * @param blockTitle The title of the block being edited.
+   * @returns The created UniversityClaim record.
+   */
+  static async createDataUpdateClaim(
+    userId: string,
+    universityId: string,
+    updateData: Array<{
+      field: string;
+      oldValue: string | number | null;
+      newValue: string | number | null;
+    }>,
+    blockTitle: string
+  ) {
+    if (updateData.length === 0) {
+      throw new AppError(400, 'No data changes detected for claim submission.');
+    }
+
+    // Get the user info for the claim record
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        firstName: true,
+        lastName: true,
+        email: true,
+      },
+    });
+
+    if (!user) {
+      throw new AppError(404, 'User not found');
+    }
+
+    // Get the university info
+    const university = await prisma.university.findUnique({
+      where: { id: universityId },
+      select: {
+        name: true,
+        slug: true,
+      },
+    });
+
+    if (!university) {
+      throw new AppError(404, 'University not found');
+    }
+
+    // Format the changes for the comments
+    const claimDetails = updateData
+      .map(d => `${d.field}: "${d.oldValue}" → "${d.newValue}"`)
+      .join('; ');
+
+    const comments = `Data update submitted via block editor: "${blockTitle}". Proposed changes: ${claimDetails}`;
+
+    // Create audit log with timestamps
+    const auditLog = updateData.map(d => ({
+      field: d.field,
+      oldValue: d.oldValue,
+      newValue: d.newValue,
+      timestamp: new Date().toISOString(),
+    }));
+
+    // Create the claim record
+    return prisma.universityClaim.create({
+      data: {
+        userId,
+        universityId,
+        status: ClaimStatus.PENDING,
+        claimType: ClaimType.DATA_UPDATE,
+        institutionalEmail: user.email,
+        verificationDocuments: [],
+        position: 'University Administrator',
+        department: 'Data Management',
+        comments,
+        requesterName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        auditLog: auditLog as unknown as Prisma.InputJsonValue,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+        university: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Processes the approval of a DATA_UPDATE claim.
+   * Atomically moves data from Draft columns to Live columns and archives the claim.
+   * This is the critical operation that makes changes permanent after admin review.
+   * 
+   * NEW (Prompt 15): Core approval workflow - executes atomic transaction for data integrity.
+   */
+  static async processDataUpdateApproval(
+    claimId: string,
+    reviewedById: string
+  ): Promise<any> {
+    // 1. Fetch the claim with its university and audit log
+    const claim = await prisma.universityClaim.findUnique({
+      where: { id: claimId },
+      include: { university: { select: { slug: true, id: true } } },
+    });
+
+    if (!claim) {
+      throw new AppError(404, 'Claim not found or is not a data update claim.');
+    }
+    
+    if (claim.claimType !== ClaimType.DATA_UPDATE) {
+      throw new AppError(400, 'This claim is not a data update claim.');
+    }
+    
+    if (claim.status !== ClaimStatus.PENDING) {
+      throw new AppError(400, `Claim status is ${claim.status}. Cannot approve.`);
+    }
+    
+    if (!claim.universityId || !claim.university?.slug) {
+      throw new AppError(400, 'Claim is not linked to a valid university.');
+    }
+
+    // 2. Parse the audit log to get proposed changes
+    let proposedChanges: Array<{
+      field: string;
+      oldValue: string | number | null;
+      newValue: string | number | null;
+      timestamp?: string;
+    }> = [];
+
+    try {
+      const auditLogData = claim.auditLog as unknown;
+      if (Array.isArray(auditLogData)) {
+        proposedChanges = auditLogData;
+      } else if (typeof auditLogData === 'string') {
+        proposedChanges = JSON.parse(auditLogData);
+      }
+    } catch (err) {
+      throw new AppError(400, 'Failed to parse claim audit log.');
+    }
+
+    // 3. Prepare data for atomic transaction (Draft → Live migration)
+    const liveUpdateData: Record<string, any> = {};
+    const draftClearData: Record<string, any> = {};
+
+    // Define DRAFT_COLUMNS (all fields that require approval)
+    const DRAFT_COLUMNS = [
+      'latitudeDraft', 'longitudeDraft', 'climateZoneDraft', 'nearestAirportDraft',
+      'addressDraft', 'cityDraft', 'stateDraft', 'zipCodeDraft', 'countryDraft',
+      'acceptanceRateDraft', 'avgGpaDraft', 'avgSatScoreDraft', 'avgActScoreDraft',
+      'gpa25thPercentileDraft', 'gpa75thPercentileDraft',
+      'satMath25Draft', 'satMath75Draft', 'satVerbal25Draft', 'satVerbal75Draft',
+      'actComposite25Draft', 'actComposite75Draft',
+      'tuitionInStateDraft', 'tuitionOutOfStateDraft', 'roomBoardDraft',
+      'booksSuppliesDraft', 'personalExpensesDraft', 'transportationDraft',
+      'costOfLivingIndexDraft', 'averageAidPackageDraft', 'percentReceivingAidDraft'
+    ];
+
+    // For each proposed change, if the field is in DRAFT_COLUMNS, migrate it to live
+    proposedChanges.forEach(change => {
+      const field = change.field;
+      const draftFieldName = `${field}Draft`;
+      
+      // Check if this is a draft field that should be migrated
+      if (DRAFT_COLUMNS.includes(draftFieldName)) {
+        // Set the new value in the LIVE column
+        liveUpdateData[field] = change.newValue;
+        // Clear the corresponding DRAFT column after migration
+        draftClearData[draftFieldName] = null;
+      }
+    });
+
+    // 4. Execute atomic transaction: Update University + Update Claim
+    const [updatedUniversity, updatedClaim] = await prisma.$transaction([
+      // A. Atomically update the Live columns and clear Draft columns
+      prisma.university.update({
+        where: { id: claim.universityId },
+        data: {
+          ...liveUpdateData,
+          ...draftClearData,
+        },
+      }),
+
+      // B. Update the Claim status to APPROVED
+      prisma.universityClaim.update({
+        where: { id: claimId },
+        data: {
+          status: ClaimStatus.APPROVED,
+          reviewedAt: new Date(),
+          reviewedById: reviewedById,
+          adminNotes: claim.adminNotes 
+            ? `${claim.adminNotes}\n\nData update approved via atomic transaction.`
+            : 'Data update approved. Canonical data committed to live columns.',
+        },
+      }),
+    ]);
+
+    // 5. Invalidate cache (crucial for ensuring next request gets fresh data)
+    try {
+      const { UniversityProfileService } = await import('./UniversityProfileService');
+      await UniversityProfileService.invalidateProfileCache(claim.university.slug);
+    } catch (cacheErr) {
+      // Log cache invalidation error but don't fail the approval
+      console.error('[ClaimService] Cache invalidation failed:', cacheErr);
+    }
+
+    return updatedClaim;
+  }
 }

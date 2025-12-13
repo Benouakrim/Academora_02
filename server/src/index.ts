@@ -1,16 +1,12 @@
+import 'dotenv/config'; // Load env vars before other imports
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import dotenv from 'dotenv';
 import { cleanEnv, port, str } from 'envalid';
 import router from './routes';
 import { errorHandler } from './middleware/errorHandler';
-import { clerkAuth } from './middleware/requireAuth';
 import { Cache } from './lib/cache';
-
-// Load environment variables
-dotenv.config();
 
 // Validate environment variables
 const env = cleanEnv(process.env, {
@@ -26,7 +22,45 @@ const app = express();
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+
+// Enhanced CORS configuration with detailed logging
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://127.0.0.1:5173',
+      process.env.CLIENT_URL
+    ].filter(Boolean);
+    
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin) {
+      console.log('[CORS] Allowing request with no origin');
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.includes(origin)) {
+      console.log('[CORS] ✅ Allowing origin:', origin);
+      callback(null, true);
+    } else {
+      console.warn('[CORS] ⚠️ Origin not in allowlist:', origin);
+      // Still allow in development for flexibility
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[CORS] Allowing anyway (development mode)');
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400 // 24 hours
+};
+
+app.use(cors(corsOptions));
 app.use(morgan('dev'));
 
 // --- CRITICAL: RAW BODY PARSING FOR STRIPE WEBHOOKS ---
@@ -87,6 +121,15 @@ app.use(errorHandler);
 // Initialize cache before starting server
 async function startServer() {
   try {
+    // Log Clerk configuration status
+    console.log('[Clerk] Configuration check:', {
+      hasPublishableKey: !!env.CLERK_PUBLISHABLE_KEY,
+      publishableKeyPrefix: env.CLERK_PUBLISHABLE_KEY?.substring(0, 15),
+      hasSecretKey: !!env.CLERK_SECRET_KEY,
+      secretKeyPrefix: env.CLERK_SECRET_KEY?.substring(0, 15),
+      hasWebhookSecret: !!env.CLERK_WEBHOOK_SECRET
+    });
+    
     // Initialize cache adapter
     await Cache.connect();
     

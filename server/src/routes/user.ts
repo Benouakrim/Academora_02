@@ -8,6 +8,38 @@ import { PublicProfileService } from '../services/PublicProfileService';
 import prisma from '../lib/prisma';
 const router = Router();
 
+// Diagnostic endpoint to check auth status (before requireAuth middleware)
+router.get('/auth/status', async (req: Request, res: Response) => {
+  try {
+    const authSource = (req as any).auth as any;
+    const auth = typeof authSource === 'function' ? authSource() : authSource;
+    
+    console.log('[Auth Status] Diagnostic check:', {
+      hasAuthSource: !!authSource,
+      authType: typeof authSource,
+      hasAuth: !!auth,
+      userId: auth?.userId,
+      hasAuthHeader: !!req.headers.authorization,
+      authHeaderStart: req.headers.authorization?.substring(0, 30)
+    });
+    
+    return res.json({
+      authenticated: !!(auth && auth.userId),
+      userId: auth?.userId || null,
+      hasAuthObject: !!auth,
+      hasAuthHeader: !!req.headers.authorization,
+      clerkConfigured: !!(process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('[Auth Status] Error:', error);
+    return res.status(500).json({
+      error: 'Failed to check auth status',
+      message: error.message
+    });
+  }
+});
+
 // Protect all user operations
 router.use(requireAuth);
 

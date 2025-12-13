@@ -328,3 +328,42 @@ export const reviewDocument = async (req: Request, res: Response, next: NextFunc
     next(err);
   }
 };
+
+/**
+ * Super Admin action to approve a specific DATA_UPDATE claim.
+ * Moves data from Draft to Live columns atomically.
+ * Restricted to ADMIN role only.
+ * 
+ * NEW (Prompt 15): Core approval endpoint for moderated data updates.
+ * 
+ * PUT /api/claims/:id/approve-data
+ */
+export const approveDataUpdate = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id: userId, role } = await getUserId(req);
+    const { id: claimId } = req.params;
+
+    // Only Super Admins can approve data updates
+    if (!isAdmin(role)) {
+      throw new AppError(403, 'Admin access required to approve data updates.');
+    }
+
+    if (!userId) {
+      throw new AppError(401, 'Reviewer identity is missing.');
+    }
+
+    // Call the service method to perform atomic approval transaction
+    const updatedClaim = await ClaimService.processDataUpdateApproval(
+      claimId,
+      userId
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Canonical data updated successfully and claim approved.',
+      data: updatedClaim,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

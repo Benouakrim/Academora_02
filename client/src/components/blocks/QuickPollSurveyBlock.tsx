@@ -8,9 +8,10 @@ import type { QuickPollSurveyBlock as QuickPollSurveyBlockType } from '@/../../s
 interface Props {
   block: QuickPollSurveyBlockType;
   isPreview?: boolean;
+  onInteraction?: (eventType: string, metadata?: Record<string, unknown>) => void;
 }
 
-export default function QuickPollSurveyBlock({ block }: Props) {
+export default function QuickPollSurveyBlock({ block, onInteraction }: Props) {
   const { data } = block;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [submitted, setSubmitted] = useState(false);
@@ -28,7 +29,25 @@ export default function QuickPollSurveyBlock({ block }: Props) {
     setSelectedIds(newSet);
   };
 
-  const totalVotes = data.options.reduce((sum, opt) => sum + (opt.votes || 0), 0);
+  const handleSubmit = () => {
+    setSubmitted(true);
+    
+    // Track the vote interaction if callback is provided
+    if (onInteraction && selectedIds.size > 0) {
+      const selectedOptions = data.options
+        .filter(opt => selectedIds.has(opt.id))
+        .map(opt => opt.text);
+      
+      onInteraction('block_vote_submit', {
+        question: data.question,
+        selectedOptionIds: Array.from(selectedIds),
+        selectedOptions,
+        allowMultiple: data.allowMultiple,
+      });
+    }
+  };
+
+  const totalVotes = (data.options ?? []).reduce((sum, opt) => sum + (opt.votes || 0), 0);
 
   return (
     <Card>
@@ -83,7 +102,7 @@ export default function QuickPollSurveyBlock({ block }: Props) {
         {!submitted ? (
           <Button
             className="mt-4 w-full"
-            onClick={() => setSubmitted(true)}
+            onClick={handleSubmit}
             disabled={selectedIds.size === 0}
           >
             Submit

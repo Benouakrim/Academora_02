@@ -1,6 +1,6 @@
 // client/src/components/admin/BlockEditor.tsx
 // Form component for editing different block types
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,27 +9,77 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Plus, X } from 'lucide-react';
 import type { BlockType } from '@/../../shared/types/microContentBlocks';
+import { useCanonicalData } from '@/hooks/useCanonicalData';
+import { CANONICAL_FIELD_MAP } from '@/lib/constants/blockMappings';
+import { MediaPickerModal } from './MediaPickerModal'; // NEW (Prompt 22): Import media picker component
 
 interface BlockEditorProps {
   blockType: BlockType;
   data: Record<string, unknown>;
   onChange: (data: Record<string, unknown>) => void;
+  universityId?: string;
+  onTransientChange?: (field: string, value: unknown) => void;
 }
 
-export default function BlockEditor({ blockType, data, onChange }: BlockEditorProps) {
-  // Helper to safely get string values
+export default function BlockEditor({ 
+  blockType, 
+  data, 
+  onChange,
+  universityId,
+  onTransientChange
+}: BlockEditorProps) {
+  const { data: canonicalData } = useCanonicalData(universityId || '');
+  
+  // NEW (Prompt 22): State for media picker modal
+  const [isMediaPickerOpen, setIsMediaPickerOpen] = useState(false);
+  const [mediaPickerFilterType, setMediaPickerFilterType] = useState<'image' | 'video'>('image');
+  
+  // Determine if this block is the Canonical Writer for its fields
+  const isCanonicalWriter = !!CANONICAL_FIELD_MAP[blockType];
+  
+  // MERGED DATA: Canonical data overrides block data if not the canonical writer
+  const mergedData = useMemo(() => {
+    const finalData = { ...data };
+    
+    // If we're NOT the canonical writer, override with canonical values
+    if (canonicalData && !isCanonicalWriter) {
+      const canonicalFields = CANONICAL_FIELD_MAP[blockType] || [];
+      for (const field of canonicalFields) {
+        if ((canonicalData as Record<string, unknown>)[field] !== undefined) {
+          finalData[field] = (canonicalData as Record<string, unknown>)[field];
+        }
+      }
+    }
+    
+    return finalData;
+  }, [data, canonicalData, isCanonicalWriter, blockType]);
+
+  // Helper to safely get string values (uses merged data)
   const getString = (key: string, defaultValue = ''): string => {
-    const value = data[key];
+    const value = mergedData[key];
     return typeof value === 'string' ? value : defaultValue;
   };
 
   const getBoolean = (key: string, defaultValue = false): boolean => {
-    const value = data[key];
+    const value = mergedData[key];
     return typeof value === 'boolean' ? value : defaultValue;
+  };
+
+  // Determine if a field is read-only (canonical field in non-canonical writer block)
+  const isFieldReadOnly = (field: string): boolean => {
+    if (!universityId || isCanonicalWriter || !canonicalData) {
+      return false;
+    }
+    const canonicalFields = CANONICAL_FIELD_MAP[blockType] || [];
+    return canonicalFields.includes(field);
   };
 
   const updateField = (field: string, value: unknown) => {
     onChange({ ...data, [field]: value });
+    // Optionally trigger transient state update if provided
+    if (onTransientChange) {
+      onTransientChange(field, value);
+    }
   };
 
   const updateNestedField = (field: string, index: number, subField: string, value: unknown) => {
@@ -299,7 +349,7 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
         </div>
       );
 
-    case 'timeline_roadmap_block':
+    case 'timeline_roadmap':
       return (
         <div className="space-y-4">
           <div>
@@ -340,7 +390,7 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
         </div>
       );
 
-    case 'testimonial_quote_block':
+    case 'testimonial_quote':
       return (
         <div className="space-y-4">
           <div>
@@ -381,74 +431,116 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
               type="number"
               min="1"
               max="5"
-              value={data.rating || 5}
+              value={String((data.rating as number | undefined) || 5)}
               onChange={(e) => updateField('rating', parseInt(e.target.value))}
             />
           </div>
         </div>
       );
 
-    case 'image_showcase_block':
+    case 'image_showcase':
       return (
-        <div className="space-y-4">
-          <div>
-            <Label>Image URL *</Label>
-            <Input
-              value={getString('imageUrl')}
-              onChange={(e) => updateField('imageUrl', e.target.value)}
-              placeholder="https://..."
-            />
-          </div>
-          <div>
-            <Label>Alt Text</Label>
-            <Input
-              value={getString('altText')}
-              onChange={(e) => updateField('altText', e.target.value)}
-              placeholder="Image description"
-            />
-          </div>
-          <div>
-            <Label>Caption</Label>
-            <Textarea
-              value={getString('caption')}
-              onChange={(e) => updateField('caption', e.target.value)}
-            />
-          </div>
-          <div>
-            <Label>Aspect Ratio</Label>
-            <Select value={getString('aspectRatio', 'auto')} onValueChange={(v) => updateField('aspectRatio', v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="16:9">16:9 (Video)</SelectItem>
-                <SelectItem value="4:3">4:3</SelectItem>
-                <SelectItem value="1:1">1:1 (Square)</SelectItem>
-                <SelectItem value="auto">Auto</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              checked={getBoolean('clickable')}
-              onCheckedChange={(checked) => updateField('clickable', checked)}
-            />
-            <Label>Make image clickable</Label>
-          </div>
-          {getBoolean('clickable') && (
-            <div>
-              <Label>Link URL</Label>
+        <>
+          {/* NEW (Prompt 22): Media Picker Modal */}
+          <MediaPickerModal
+            isOpen={isMediaPickerOpen}
+            onClose={() => setIsMediaPickerOpen(false)}
+            onSelect={(asset) => {
+              updateField('mediaId', asset.mediaId);
+              updateField('imageUrl', asset.url);
+              if (asset.altText && !getString('altText')) {
+                updateField('altText', asset.altText);
+              }
+            }}
+            filterType={mediaPickerFilterType}
+          />
+
+          {/* Image Showcase Form */}
+          <div className="space-y-4">
+            {/* NEW (Prompt 22): Media Picker Integration */}
+            <div className="border-2 border-blue-200 bg-blue-50 p-4 rounded-lg">
+              <Label className="block mb-3 font-semibold text-blue-900">Select Image from Media Library</Label>
+              <Button
+                type="button"
+                variant="outline"
+                className="mb-2"
+                onClick={() => {
+                  setMediaPickerFilterType('image');
+                  setIsMediaPickerOpen(true);
+                }}
+              >
+                {getString('mediaId') ? '✓ Change Image' : '+ Select Image'}
+              </Button>
+              {getString('mediaId') && (
+                <p className="text-xs text-blue-700 mt-1">
+                  Selected media ID: {String(getString('mediaId')).substring(0, 16)}...
+                </p>
+              )}
+            </div>
+
+            {/* Fallback: Manual URL Input */}
+            <div className="border-t pt-4">
+              <Label className="text-gray-600 text-sm mb-2 block">Or paste URL directly</Label>
               <Input
-                value={getString('linkUrl')}
-                onChange={(e) => updateField('linkUrl', e.target.value)}
+                value={getString('imageUrl')}
+                onChange={(e) => updateField('imageUrl', e.target.value)}
                 placeholder="https://..."
+                disabled={!!getString('mediaId')}
+                className="disabled:bg-gray-100"
               />
             </div>
-          )}
-        </div>
+
+            <div>
+              <Label>Alt Text *</Label>
+              <Input
+                value={getString('altText')}
+                onChange={(e) => updateField('altText', e.target.value)}
+                placeholder="Image description"
+              />
+            </div>
+            <div>
+              <Label>Caption</Label>
+              <Textarea
+                value={getString('caption')}
+                onChange={(e) => updateField('caption', e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Aspect Ratio</Label>
+              <Select value={getString('aspectRatio', 'auto')} onValueChange={(v) => updateField('aspectRatio', v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="16:9">16:9 (Video)</SelectItem>
+                  <SelectItem value="4:3">4:3</SelectItem>
+                  <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                  <SelectItem value="auto">Auto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                checked={getBoolean('clickable')}
+                onCheckedChange={(checked) => updateField('clickable', checked)}
+              />
+              <Label>Make image clickable</Label>
+            </div>
+            {getBoolean('clickable') && (
+              <div>
+                <Label>Link URL</Label>
+                <Input
+                  value={getString('linkUrl')}
+                  onChange={(e) => updateField('linkUrl', e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+            )}
+          </div>
+        </>
       );
 
-    case 'video_embed_block':
+    case 'video_embed':
       return (
         <div className="space-y-4">
           <div>
@@ -494,7 +586,7 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
         </div>
       );
 
-    case 'faq_accordion_block':
+    case 'faq_accordion':
       return (
         <div className="space-y-4">
           <div>
@@ -523,7 +615,7 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
         </div>
       );
 
-    case 'comparison_metric_block':
+    case 'comparison_metric':
       return (
         <div className="space-y-4">
           <div>
@@ -576,7 +668,7 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
         </div>
       );
 
-    case 'contact_box_block':
+    case 'contact_box':
       return (
         <div className="space-y-4">
           <div>
@@ -630,7 +722,7 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
         </div>
       );
 
-    case 'link_list_resources_block':
+    case 'link_list_resources':
       return (
         <div className="space-y-4">
           <div>
@@ -676,7 +768,7 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
         </div>
       );
 
-    case 'quick_poll_survey_block':
+    case 'quick_poll_survey':
       return (
         <div className="space-y-4">
           <div>
@@ -726,7 +818,7 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
         </div>
       );
 
-    case 'cost_breakdown_chart_block':
+    case 'cost_breakdown_chart':
       return (
         <div className="space-y-4">
           <div>
@@ -757,7 +849,7 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
                     />
                     <Input
                       type="number"
-                      value={item.amount || 0}
+                      value={String((item.amount as number) || 0)}
                       placeholder="Amount"
                       onChange={(e) => updateNestedField('items', idx, 'amount', parseFloat(e.target.value))}
                     />
@@ -775,9 +867,14 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
         </div>
       );
 
-    case 'admissions_range_meter_block':
+    case 'admissions_range_meter':
       return (
         <div className="space-y-4">
+          {!isCanonicalWriter && canonicalData && (
+            <div className="p-3 border border-yellow-300 bg-yellow-50 rounded text-sm text-yellow-800">
+              📊 <strong>Canonical Data Mode:</strong> This block does not write to the database. Fields below display the current source-of-truth values from the University profile. Changes are for simulation only.
+            </div>
+          )}
           <div>
             <Label>Metric Type</Label>
             <Select value={getString('metric', 'gpa')} onValueChange={(v) => updateField('metric', v)}>
@@ -795,46 +892,50 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
             <Label>Minimum Value</Label>
             <Input
               type="number"
-              value={data.min || 0}
+              value={String((data.min as number | undefined) || 0)}
               onChange={(e) => updateField('min', parseFloat(e.target.value))}
+              disabled={isFieldReadOnly('min')}
             />
           </div>
           <div>
             <Label>25th Percentile</Label>
             <Input
               type="number"
-              value={data.percentile25 || 0}
+              value={String((data.percentile25 as number | undefined) || 0)}
               onChange={(e) => updateField('percentile25', parseFloat(e.target.value))}
+              disabled={isFieldReadOnly('percentile25')}
             />
           </div>
           <div>
             <Label>75th Percentile</Label>
             <Input
               type="number"
-              value={data.percentile75 || 0}
+              value={String((data.percentile75 as number | undefined) || 0)}
               onChange={(e) => updateField('percentile75', parseFloat(e.target.value))}
+              disabled={isFieldReadOnly('percentile75')}
             />
           </div>
           <div>
             <Label>Maximum Value</Label>
             <Input
               type="number"
-              value={data.max || 0}
+              value={String((data.max as number | undefined) || 0)}
               onChange={(e) => updateField('max', parseFloat(e.target.value))}
+              disabled={isFieldReadOnly('max')}
             />
           </div>
           <div>
             <Label>User Value (optional)</Label>
             <Input
               type="number"
-              value={data.userValue || ''}
+              value={String(data.userValue || '')}
               onChange={(e) => updateField('userValue', e.target.value ? parseFloat(e.target.value) : undefined)}
             />
           </div>
         </div>
       );
 
-    case 'campus_map_poi_block':
+    case 'campus_map_poi':
       return (
         <div className="space-y-4">
           <div>
@@ -857,7 +958,7 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
             <Input
               type="number"
               step="0.0001"
-              value={data.latitude || 0}
+              value={String((data.latitude as number | undefined) || 0)}
               onChange={(e) => updateField('latitude', parseFloat(e.target.value))}
             />
           </div>
@@ -866,7 +967,7 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
             <Input
               type="number"
               step="0.0001"
-              value={data.longitude || 0}
+              value={String((data.longitude as number | undefined) || 0)}
               onChange={(e) => updateField('longitude', parseFloat(e.target.value))}
             />
           </div>
@@ -876,14 +977,14 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
               type="number"
               min="1"
               max="21"
-              value={data.zoom || 16}
+              value={String((data.zoom as number | undefined) || 16)}
               onChange={(e) => updateField('zoom', parseInt(e.target.value))}
             />
           </div>
         </div>
       );
 
-    case 'badge_requirement_block':
+    case 'badge_requirement':
       return (
         <div className="space-y-4">
           <div>
@@ -921,14 +1022,14 @@ export default function BlockEditor({ blockType, data, onChange }: BlockEditorPr
             <Label>Earned By Count</Label>
             <Input
               type="number"
-              value={data.earnedByCount || 0}
+              value={String((data.earnedByCount as number | undefined) || 0)}
               onChange={(e) => updateField('earnedByCount', parseInt(e.target.value))}
             />
           </div>
         </div>
       );
 
-    case 'scholarship_spotlight_block':
+    case 'scholarship_spotlight':
       return (
         <div className="space-y-4">
           <div>

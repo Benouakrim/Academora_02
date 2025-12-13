@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../utils/AppError';
 import prisma from '../lib/prisma';
+import { UniversityBlockService } from '../services/UniversityBlockService'; // NEW IMPORT
 
 // GET /university/:universityId - Get all micro-content for a specific university
 export const getByUniversity = async (req: Request, res: Response, next: NextFunction) => {
@@ -85,12 +86,31 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
       return next(new AppError(404, 'University not found'));
     }
 
+    // NEW: Extract user role and ID from request (assuming auth middleware provides it)
+    const userRole = (req as any).user?.role || 'USER';
+    const userId = (req as any).user?.id;
+
+    // Use new format if provided, otherwise create legacy format payload
+    if (isNewFormat) {
+      // Use the new UniversityBlockService for routing and data integrity
+      const payload = {
+        blockType,
+        universityId,
+        title,
+        data,
+        priority: priority || 0,
+      };
+      const microContent = await UniversityBlockService.updateBlock(payload, userRole, userId);
+      return res.status(201).json({ status: 'success', data: microContent });
+    }
+
+    // Legacy format support (old category/content flow)
     const microContent = await prisma.microContent.create({
       data: {
         universityId,
-        blockType: blockType || 'rich_text_block',
+        blockType: 'rich_text_block',
         title,
-        data: isNewFormat ? data : { content, format: 'html' },
+        data: { content, format: 'html' },
         priority: priority || 0,
         category: category || null,
         content: content || null, // Backward compatibility
@@ -107,7 +127,7 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
 export const update = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
-    const { blockType, title, data, priority, category, content } = req.body;
+    const { blockType, title, data, priority, category, content, universityId } = req.body;
 
     // Check if micro-content exists
     const existing = await prisma.microContent.findUnique({
@@ -118,6 +138,25 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
       return next(new AppError(404, 'Micro-content not found'));
     }
 
+    // NEW: Extract user role and ID from request (assuming auth middleware provides it)
+    const userRole = (req as any).user?.role || 'USER';
+    const userId = (req as any).user?.id;
+
+    // NEW: If blockType and data are provided (new format), use UniversityBlockService
+    if (blockType && data) {
+      const payload = {
+        blockType,
+        universityId: universityId || existing.universityId,
+        title: title !== undefined ? title : existing.title,
+        data,
+        priority: priority !== undefined ? priority : existing.priority,
+        id, // Include the ID for update operation
+      };
+      const microContent = await UniversityBlockService.updateBlock(payload, userRole, userId);
+      return res.status(200).json({ status: 'success', data: microContent });
+    }
+
+    // Legacy format support (backward compatibility)
     const microContent = await prisma.microContent.update({
       where: { id },
       data: {
@@ -182,5 +221,58 @@ export const deleteMicroContent = async (req: Request, res: Response, next: Next
     res.status(200).json({ status: 'success', message: 'Micro-content deleted successfully' });
   } catch (err) {
     next(err);
+  }
+};
+
+// DELETE /bulk-delete - Bulk deletion of micro-content blocks
+// PROMPT 20: Multi-Block Batch Management
+export const bulkDeleteMicroContent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { blockIds } = req.body as { blockIds: string[] };
+
+    if (!blockIds || blockIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No blocks selected for deletion.' });
+    }
+
+    const count = await UniversityBlockService.bulkDeleteBlocks(blockIds);
+
+    res.status(200).json({
+      success: true,
+      message: `${count} blocks deleted successfully.`,
+      data: { count }
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
+    next(error);
+  }
+};
+
+// POST /duplicate - Duplicates a source block to multiple target universities
+// PROMPT 20: Multi-Block Batch Management
+export const duplicateMicroContent = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { sourceBlockId, targetUniversityIds } = req.body as { sourceBlockId: string, targetUniversityIds: string[] };
+
+    if (!sourceBlockId || !targetUniversityIds || targetUniversityIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Source block and target universities must be specified.' });
+    }
+
+    const createdBlocks = await UniversityBlockService.duplicateBlockToUniversities(
+      sourceBlockId,
+      targetUniversityIds
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `${createdBlocks.length} copies of the block were created successfully.`,
+      data: { count: createdBlocks.length }
+    });
+  } catch (error) {
+    if (error instanceof AppError) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
+    next(error);
   }
 };

@@ -2,6 +2,7 @@ import 'dotenv/config'; // Load env vars before other imports
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import { cleanEnv, port, str } from 'envalid';
 import router from './routes';
@@ -22,6 +23,7 @@ const app = express();
 
 // Middleware
 app.use(helmet());
+app.use(cookieParser());
 
 // Enhanced CORS configuration with detailed logging
 const corsOptions = {

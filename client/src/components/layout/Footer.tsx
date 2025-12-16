@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
 import { GraduationCap, Github, Twitter, Linkedin, Heart } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
+  const { isAdmin } = useIsAdmin()
 
   return (
     <footer className="bg-neutral-50 dark:bg-neutral-900 border-t border-border">
@@ -34,7 +36,10 @@ export default function Footer() {
               <li><Link to="/search" className="hover:text-primary transition-colors">University Search</Link></li>
               <li><Link to="/compare" className="hover:text-primary transition-colors">Comparison Tool</Link></li>
               <li><Link to="/blog" className="hover:text-primary transition-colors">Student Guides</Link></li>
-              <li><Link to="/pricing" className="hover:text-primary transition-colors">Pricing</Link></li>
+              {/* Pricing link - admin only for launch */}
+              {isAdmin && (
+                <li><Link to="/pricing" className="hover:text-primary transition-colors">Pricing</Link></li>
+              )}
             </ul>
           </div>
 

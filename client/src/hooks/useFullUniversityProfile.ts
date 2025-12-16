@@ -5,6 +5,14 @@ import { useUserStore } from '@/store/useUserStore';
 import { MicroContentBlock } from '@/../../shared/types/microContentBlocks';
 
 /**
+ * Stable selectors for user profile to prevent infinite loops
+ * Must be defined outside the component to maintain referential equality
+ */
+const selectUserGpa = (state: any) => state.profile?.gpa || null;
+const selectUserSat = (state: any) => state.profile?.satScore || null;
+const selectUserAct = (state: any) => state.profile?.actScore || null;
+
+/**
  * University Profile: All scalar fields from the University table
  * Used by canonical blocks (headers, key stats, etc.)
  */
@@ -104,15 +112,12 @@ export interface ClientUserProfile {
  */
 export function useFullUniversityProfile(slug: string) {
   // 1. Fetch User Data from client store (for inverse blocks)
-  const userProfile = useUserStore(state => {
-    const profile = state.profile;
-    return {
-      gpa: profile?.gpa || null,
-      sat: profile?.satScore || null,
-      act: profile?.actScore || null,
-      // Add other user fields as needed
-    };
-  });
+  // Use stable selectors to prevent infinite loops from new object references
+  const gpa = useUserStore(selectUserGpa);
+  const sat = useUserStore(selectUserSat);
+  const act = useUserStore(selectUserAct);
+
+  const userProfile = { gpa, sat, act };
 
   // 2. Fetch Merged Entity from Cached API (Prompt 9)
   // Route: GET /api/universities/:slug/profile/full

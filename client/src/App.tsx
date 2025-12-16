@@ -1,14 +1,17 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useEffect } from 'react';
 import './App.css';
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
+import { CookieConsentProvider } from '@/context/CookieConsentContext';
+import { CookieConsentBanner } from '@/components/common/CookieConsentBanner';
 
 // Layouts
 const RootLayout = lazy(() => import('@/layouts/RootLayout'));
 const DashboardLayout = lazy(() => import('@/layouts/DashboardLayout'));
 const AdminLayout = lazy(() => import('@/layouts/AdminLayout'));
 const ProtectedRoute = lazy(() => import('@/components/auth/ProtectedRoute'));
+const AdminOnlyRoute = lazy(() => import('@/components/auth/AdminOnlyRoute'));
 
 // Pages
 const LandingPage = lazy(() => import('@/pages/landing/LandingPage'));
@@ -64,35 +67,52 @@ const OnboardingPage = lazy(() => import('@/pages/OnboardingPage'));
 const PublicProfilePage = lazy(() => import('@/pages/profile/PublicProfilePage'));
 
 export default function App() {
+  // Enable dark mode by default on app load
+  useEffect(() => {
+    const htmlElement = document.documentElement;
+    htmlElement.classList.add('dark');
+    localStorage.setItem('theme-preference', 'dark');
+  }, []);
+
   return (
-    <BrowserRouter>
-      <ErrorBoundary>
+    <CookieConsentProvider>
+      <BrowserRouter>
+        <ErrorBoundary>
         <Suspense fallback={<LoadingSpinner />}>
-          <Routes>
+          <div style={{ transform: 'scale(0.9)', transformOrigin: 'top left', width: '111.111%', height: '111.111%' }}>
+            <Routes>
             <Route path="/" element={<RootLayout />}> 
               <Route index element={<LandingPage />} />
               <Route path="search" element={<SearchPage />} />
               <Route path="compare" element={<ComparePage />} />
-              <Route path="pricing" element={<PricingPage />} />
               <Route path="blog" element={<BlogPage />} />
               <Route path="blog/:slug" element={<ArticlePage />} />
               <Route path="university/:slug" element={<UniversityPage />} />
               <Route path="university-claims/claim" element={<UniversityClaimPage />} />
-              <Route path="groups" element={<GroupsPage />} />
-              <Route path="groups/:slug" element={<GroupDetailPage />} />
               <Route path=":username" element={<PublicProfilePage />} />
               <Route path="@:username" element={<PublicProfilePage />} />
               <Route path="about" element={<StaticContentPage slug="about" />} />
               <Route path="contact" element={<StaticContentPage slug="contact" />} />
-              <Route path="privacy" element={<StaticContentPage slug="privacy" />} />
-              <Route path="terms" element={<StaticContentPage slug="terms" />} />
+              <Route path="privacy" element={<StaticContentPage slug="privacy" />} />                <Route path="cookies" element={<StaticContentPage slug="cookies" />} />              <Route path="terms" element={<StaticContentPage slug="terms" />} />
               <Route path="cms-demo" element={<CMSDemo />} />
               <Route path="sign-in/*" element={<SignIn routing="path" path="/sign-in" afterSignInUrl="/dashboard" />} />
               <Route path="sign-up/*" element={<SignUp routing="path" path="/sign-up" afterSignUpUrl="/dashboard" />} />
             </Route>
 
+            {/* Admin-only public routes (hidden from regular users for launch) */}
+            <Route element={<AdminOnlyRoute />}>
+              <Route path="/pricing" element={<RootLayout />}>
+                <Route index element={<PricingPage />} />
+              </Route>
+              <Route path="/groups" element={<RootLayout />}>
+                <Route index element={<GroupsPage />} />
+              </Route>
+              <Route path="/groups/:slug" element={<RootLayout />}>
+                <Route index element={<GroupDetailPage />} />
+              </Route>
+            </Route>
+
             <Route element={<ProtectedRoute />}> 
-              <Route path="/articles/new" element={<ArticleEditorLayout />} />
               <Route path="/articles/:id" element={<ArticleEditorLayout />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/dashboard" element={<DashboardLayout />}>
@@ -102,11 +122,24 @@ export default function App() {
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="badges" element={<BadgesPage />} />
                 <Route path="referrals" element={<ReferralDashboardPage />} />
-                <Route path="claims" element={<MyClaimsPage />} />
-                <Route path="claims/new" element={<NewClaimPage />} />
                 <Route path="matching-engine" element={<MatchingEnginePage />} />
-                <Route path="my-articles" element={<MyArticlesPage />} />
-                <Route path="my-articles/analytics" element={<MyArticlesAnalyticsPage />} />
+              </Route>
+            </Route>
+
+            {/* Admin-only dashboard routes (hidden from regular users for launch) */}
+            <Route element={<AdminOnlyRoute />}>
+              <Route path="/articles/new" element={<ArticleEditorLayout />} />
+              <Route path="/dashboard/claims" element={<DashboardLayout />}>
+                <Route index element={<MyClaimsPage />} />
+              </Route>
+              <Route path="/dashboard/claims/new" element={<DashboardLayout />}>
+                <Route index element={<NewClaimPage />} />
+              </Route>
+              <Route path="/dashboard/my-articles" element={<DashboardLayout />}>
+                <Route index element={<MyArticlesPage />} />
+              </Route>
+              <Route path="/dashboard/my-articles/analytics" element={<DashboardLayout />}>
+                <Route index element={<MyArticlesAnalyticsPage />} />
               </Route>
             </Route>
 
@@ -137,8 +170,11 @@ export default function App() {
 
             <Route path="*" element={<div className="p-10 text-center">404 - Page Not Found</div>} />
           </Routes>
+          <CookieConsentBanner />
+            </div>
         </Suspense>
       </ErrorBoundary>
     </BrowserRouter>
+    </CookieConsentProvider>
   );
 }

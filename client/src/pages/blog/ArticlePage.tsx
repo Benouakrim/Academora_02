@@ -2,6 +2,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAnalyticsTracking } from '@/hooks/useAnalyticsTracking';
+import { useSavedArticles } from '@/hooks/useSavedArticles';
 import { format } from 'date-fns';
 import { ArrowLeft, Calendar, Clock, Eye, Share2, Bookmark, Edit, Trash2, Heart, Shield } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -33,13 +34,14 @@ export default function ArticlePage() {
   const navigate = useNavigate();
   const { user } = useUser();
   const queryClient = useQueryClient();
-  const [isSaved, setIsSaved] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
   
   // Analytics tracking
   const { trackPageView, trackEvent } = useAnalyticsTracking();
+  
+  // Use saved articles hook
+  const { data: savedArticles = [], remove: removeSavedArticle } = useSavedArticles();
 
   const { data: article, isLoading, error } = useQuery({
     queryKey: ['article', slug],
@@ -50,9 +52,15 @@ export default function ArticlePage() {
     enabled: !!slug
   });
 
+  // Check if current article is saved
+  const isSaved = article && savedArticles.some(s => s.article.id === article.id);
+
   // Check if user is admin
   const isAdmin = user?.publicMetadata?.role === 'admin' || 
                   user?.primaryEmailAddress?.emailAddress === 'admin@academora.com';
+
+  // Add state for like tracking
+  const [isLiked, setIsLiked] = useState(false);
 
   // Track article view
   useEffect(() => {
@@ -69,7 +77,7 @@ export default function ArticlePage() {
         }
       });
     }
-  }, [article?.id, slug, trackPageView]);
+  }, [article?.id, slug]);
 
   // Check if article is liked by user
   useEffect(() => {
@@ -331,15 +339,30 @@ export default function ArticlePage() {
                       {isLiked ? 'Liked' : 'Like'}
                     </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsSaved(!isSaved)}
-                    className="gap-2"
-                  >
-                    <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
-                    Save
-                  </Button>
+                  {user && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          if (isSaved) {
+                            await removeSavedArticle(article.id);
+                            toast.success('Article removed from saved');
+                          } else {
+                            await api.post(`/user/saved-article/${article.id}`);
+                            queryClient.invalidateQueries({ queryKey: ['saved-articles'] });
+                            toast.success('Article saved!');
+                          }
+                        } catch (error) {
+                          toast.error('Failed to save article');
+                        }
+                      }}
+                      className="gap-2"
+                    >
+                      <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
+                      {isSaved ? 'Saved' : 'Save'}
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -451,10 +474,30 @@ export default function ArticlePage() {
                     <Share2 className="h-4 w-4" />
                     Share Article
                   </Button>
-                  <Button variant="outline" size="sm" className="w-full gap-2 justify-center" onClick={() => setIsSaved(!isSaved)}>
-                    <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
-                    {isSaved ? 'Saved' : 'Save'}
-                  </Button>
+                  {user && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full gap-2 justify-center" 
+                      onClick={async () => {
+                        try {
+                          if (isSaved) {
+                            await removeSavedArticle(article.id);
+                            toast.success('Article removed from saved');
+                          } else {
+                            await api.post(`/user/saved-article/${article.id}`);
+                            queryClient.invalidateQueries({ queryKey: ['saved-articles'] });
+                            toast.success('Article saved!');
+                          }
+                        } catch (error) {
+                          toast.error('Failed to save article');
+                        }
+                      }}
+                    >
+                      <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
+                      {isSaved ? 'Saved' : 'Save'}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

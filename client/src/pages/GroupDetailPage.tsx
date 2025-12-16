@@ -58,7 +58,7 @@ export default function GroupDetailPage() {
         }
       });
     }
-  }, [data?.data?.id, data?.data?.name, slug, trackPageView]);
+  }, [data?.data?.id, data?.data?.name, slug]);
 
   if (isLoading) {
     return (

@@ -1,10 +1,34 @@
-import { ExternalLink, MapPin, Trophy, Building2 } from 'lucide-react'
+import { ExternalLink, MapPin, Trophy, Building2, Bookmark } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useState } from 'react'
+import { api } from '@/lib/api'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { useSavedUniversities } from '@/hooks/useSavedUniversities'
+import { useAuth } from '@clerk/clerk-react'
 import type { UniversityDetail } from '@/hooks/useUniversityDetail'
 
 export default function UniversityHeader({ university }: { university: UniversityDetail }) {
   const location = [university.city, university.state, university.country].filter(Boolean).join(', ')
+  const { isSignedIn } = useAuth()
+  const qc = useQueryClient()
+  const { data: savedUniversities = [] } = useSavedUniversities()
+  const isSaved = savedUniversities.some(s => s.university.id === university.id)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleSaveUniversity = async () => {
+    try {
+      setIsSaving(true)
+      await api.post(`/user/saved/${university.id}`)
+      await qc.invalidateQueries({ queryKey: ['saved-universities'] })
+      toast.success(isSaved ? 'Removed from saved universities' : 'Added to saved universities')
+    } catch (error) {
+      toast.error('Failed to save university')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <div className="relative h-[400px] w-full overflow-hidden">
@@ -59,6 +83,17 @@ export default function UniversityHeader({ university }: { university: Universit
                     Visit Website <ExternalLink className="h-4 w-4 ml-2" />
                   </Button>
                 </a>
+              )}
+              {isSignedIn && (
+                <Button 
+                  variant={isSaved ? 'default' : 'secondary'}
+                  onClick={handleSaveUniversity}
+                  disabled={isSaving}
+                  className="gap-2"
+                >
+                  <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
+                  {isSaved ? 'Saved' : 'Save'}
+                </Button>
               )}
             </div>
           </div>

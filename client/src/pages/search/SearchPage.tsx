@@ -1,26 +1,29 @@
 import { useState } from 'react';
 import { Filter } from 'lucide-react';
+import { useEffect } from 'react';
 import { useUniversitySearch } from '@/hooks/useUniversitySearch';
 import { useSearchStore, countActiveFilters } from '@/store/useSearchStore';
 import { useInitialSearchCriteria } from '@/hooks/useInitialSearchCriteria';
-import SearchFiltersComponent from '@/components/search/SearchFilters';
+import AdvancedFiltersModal from '@/components/search/AdvancedFiltersModal';
 import SearchHeaderBar from '@/components/search/SearchHeaderBar';
 import UniversityCardGrid from '@/components/search/UniversityCardGrid';
 import UniversityCompactList from '@/components/search/UniversityCompactList';
 import UniversityMapLayout from '@/components/search/UniversityMapLayout';
 import PaginationControls from '@/components/search/PaginationControls';
-import CategoryWeightPanel from '@/components/search/CategoryWeightPanel';
+
 import MatchModeEmptyState from '@/components/search/MatchModeEmptyState';
 import CompareFloatingButton from '@/components/search/CompareFloatingButton';
 import RecommendationsPanel from '@/components/search/RecommendationsPanel';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SEO } from '@/components/common/SEO';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 
 export default function SearchPage() {
+  // Scroll to top on page load/refresh
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   // Load user's profile data to pre-fill filters
   const { isLoading: loadingProfile } = useInitialSearchCriteria();
   
@@ -37,8 +40,8 @@ export default function SearchPage() {
     hasCompleteProfile,
   } = useSearchStore();
 
-  // Mobile filter sheet state
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  // Advanced filter modal state
+  const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
 
   // Calculate active filters count
   const activeFiltersCount = countActiveFilters(criteria);
@@ -47,59 +50,40 @@ export default function SearchPage() {
   const isProfileComplete = hasCompleteProfile();
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-black">
+    <div className="min-h-screen bg-neutral-50 dark:bg-black relative">
       <SEO title="Search Universities - AcademOra" description="Find your dream university from our global database." />
       
-      {/* Persistent Search Header Bar */}
+      {/* Minimalist Search Header Bar - Fixed */}
       <SearchHeaderBar
         totalResults={data?.pagination.totalResults || 0}
         appliedFiltersCount={activeFiltersCount}
         isLoading={isLoading}
         isProfileLoaded={isProfileLoaded}
         loadingProfile={loadingProfile}
-        onMobileFiltersClick={() => setMobileFiltersOpen(true)}
+        onAdvancedFiltersClick={() => setAdvancedFiltersOpen(true)}
       />
 
-      {/* Main Content Area with Responsive Layout */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
-        {/* Mobile Filter Sheet (only on < lg) */}
-        <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-          <SheetContent side="left" className="w-[340px] sm:w-[400px] overflow-y-auto p-0">
-            <SheetHeader className="px-6 pt-6 pb-4 border-b">
-              <SheetTitle>Filter Universities</SheetTitle>
-            </SheetHeader>
-            <div className="px-2">
-              <SearchFiltersComponent />
+      {/* Main Content Area */}
+      <div>
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+          {/* Advanced Filters Modal (triggered by Advanced Filters button) */}
+          <AdvancedFiltersModal 
+            open={advancedFiltersOpen} 
+            onOpenChange={setAdvancedFiltersOpen}
+          />
+
+          {/* Recommendations Panel - Only in Match Mode with Results */}
+          {viewMode === 'MATCH' && isProfileComplete && data && data.results.length > 0 && (
+            <div className="mb-8">
+              <RecommendationsPanel 
+                results={data.results}
+                userProfile={criteria.userProfile}
+              />
             </div>
-          </SheetContent>
-        </Sheet>
+          )}
 
-        {/* Filters Section - Above Results (Desktop) */}
-        <div className="hidden lg:block mb-8">
-          <div className="bg-white dark:bg-neutral-900 rounded-xl border shadow-sm">
-            <SearchFiltersComponent />
-          </div>
-        </div>
-
-        {/* Category Weight Panel - Only in Match Mode */}
-        {viewMode === 'MATCH' && isProfileComplete && (
-          <div className="mb-8">
-            <CategoryWeightPanel />
-          </div>
-        )}
-
-        {/* Recommendations Panel - Only in Match Mode with Results */}
-        {viewMode === 'MATCH' && isProfileComplete && data && data.results.length > 0 && (
-          <div className="mb-8">
-            <RecommendationsPanel 
-              results={data.results}
-              userProfile={criteria.userProfile}
-            />
-          </div>
-        )}
-
-        {/* Results Area */}
-        <main className="w-full">{/* Full width layout */}
+          {/* Results Area */}
+          <main className="w-full">
             <ErrorBoundary
               fallback={
                 <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -130,32 +114,6 @@ export default function SearchPage() {
                 <MatchModeEmptyState />
               ) : data && data.results.length > 0 ? (
                 <>
-                  {/* Results Summary Header */}
-                  <div className="mb-6 pb-4 border-b border-border">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div>
-                        <h2 className="text-2xl font-bold text-foreground">
-                          Found {data.pagination.totalResults.toLocaleString()} {data.pagination.totalResults === 1 ? 'University' : 'Universities'}
-                        </h2>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Showing {((data.pagination.currentPage - 1) * criteria.limit) + 1} - {Math.min(data.pagination.currentPage * criteria.limit, data.pagination.totalResults)} of {data.pagination.totalResults.toLocaleString()}
-                          {data.restricted && (
-                            <Badge variant="outline" className="ml-2 border-amber-400 text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20">
-                              Free tier: Top 3 results shown
-                            </Badge>
-                          )}
-                        </p>
-                      </div>
-                      {activeFiltersCount > 0 && (
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="px-3 py-1">
-                            {activeFiltersCount} filter{activeFiltersCount !== 1 ? 's' : ''} applied
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
                   {/* Multi-View Rendering */}
                   {viewType === 'CARD' && (
                     <UniversityCardGrid 
@@ -227,6 +185,7 @@ export default function SearchPage() {
               )}
             </ErrorBoundary>
           </main>
+        </div>
       </div>
 
       {/* Floating Compare Button */}

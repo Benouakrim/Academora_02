@@ -35,7 +35,7 @@ export default function CategoryWeightPanel() {
   // Apply debounced weights to store
   useEffect(() => {
     setWeights(debouncedWeights);
-  }, [debouncedWeights, setWeights]);
+  }, [debouncedWeights]);
 
   const handleWeightChange = (category: keyof typeof localWeights, value: number) => {
     setLocalWeights((prev) => ({ ...prev, [category]: value }));

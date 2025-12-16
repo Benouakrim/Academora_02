@@ -8,9 +8,11 @@ type Props = {
   onClose: () => void
   initialNote: string | null | undefined
   onSave: (text: string) => Promise<void> | void
+  title?: string
+  description?: string
 }
 
-export default function EditNoteDialog({ isOpen, onClose, initialNote, onSave }: Props) {
+export default function EditNoteDialog({ isOpen, onClose, initialNote, onSave, title = 'Edit Note', description = 'Add a private note.' }: Props) {
   const [text, setText] = useState(initialNote ?? '')
 
   useEffect(() => {
@@ -26,8 +28,8 @@ export default function EditNoteDialog({ isOpen, onClose, initialNote, onSave }:
     <Dialog open={isOpen} onOpenChange={(o) => (!o ? onClose() : undefined)}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Note</DialogTitle>
-          <DialogDescription>Add a private note about this university.</DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <div className="mt-3">
           <Textarea rows={6} value={text} onChange={(e) => setText(e.target.value)} placeholder="Write your note..." />

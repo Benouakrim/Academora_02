@@ -125,7 +125,7 @@ export function useUniversitySearch() {
   // Sync isFetching state with store
   useEffect(() => {
     setIsFetching(query.isFetching);
-  }, [query.isFetching, setIsFetching]);
+  }, [query.isFetching]);
 
   return query;
 }

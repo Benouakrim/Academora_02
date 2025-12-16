@@ -7,9 +7,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 
 export default function ReferralDashboardPage() {
   const { data, isLoading } = useReferrals()
+  const { isAdmin } = useIsAdmin()
   
   // Assuming the client URL is available globally (VITE_CLIENT_URL)
   const clientUrl = import.meta.env.VITE_CLIENT_URL || 'http://localhost:5173'
@@ -138,13 +140,16 @@ export default function ReferralDashboardPage() {
         </CardContent>
       </Card>
       
-      <div className="text-center pt-4">
-        <Link to="/pricing">
-          <Button variant="link" className="text-sm">
-            Learn About Referral Rewards <ArrowRight className="w-4 h-4 ml-1" />
-          </Button>
-        </Link>
-      </div>
+      {/* Pricing link - admin only for launch */}
+      {isAdmin && (
+        <div className="text-center pt-4">
+          <Link to="/pricing">
+            <Button variant="link" className="text-sm">
+              Learn About Referral Rewards <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+          </Link>
+        </div>
+      )}
     </div>
   )
 }

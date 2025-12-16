@@ -46,6 +46,8 @@ router.use(requireAuth);
 router.get('/profile', controller.getProfile);
 router.patch('/profile', validate(updateProfileSchema), controller.updateProfile);
 router.post('/saved/:id', validate(toggleSavedSchema), controller.toggleSaved);
+router.post('/saved-article/:id', controller.toggleSavedArticle);
+router.patch('/saved-notes/:id', controller.updateSavedNotes);
 router.get('/dashboard', controller.getUserDashboard);
 
 // Get user badges

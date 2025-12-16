@@ -54,6 +54,7 @@ model User {
   referralsGiven          Referral[]        @relation("Referrer")
   reviews                 Review[]
   savedUniversities       SavedUniversity[]
+  savedArticles           SavedArticle[]
   claimedUniversities     University[]      @relation("UniversityClaim")
   reviewedClaims          UniversityClaim[] @relation("ClaimReviewer")
   universityClaims        UniversityClaim[]
@@ -218,6 +219,18 @@ model SavedUniversity {
   user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, universityId])
+}
+
+model SavedArticle {
+  id        String   @id @default(uuid())
+  userId    String
+  articleId String
+  notes     String?
+  createdAt DateTime @default(now())
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
 }
 
 model UniversityClaim {
@@ -405,6 +418,7 @@ model Article {
   reviewedBy      User?               @relation("ArticleReviewer", fields: [reviewedById], references: [id])
   analytics       ArticleAnalytics[]
   likes           ArticleLike[]
+  savedByUsers    SavedArticle[]
   predictions     ArticlePrediction[]
   comments        Comment[]
   tags            Tag[]               @relation("ArticleToTag")

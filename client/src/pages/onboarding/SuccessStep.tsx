@@ -64,7 +64,7 @@ const GOAL_CONFIG = {
     description: 'Connect with students, alumni, and professionals',
     icon: Users,
     ctaText: 'Explore Community',
-    ctaLink: '/groups',
+    ctaLink: '/dashboard', // Changed from /groups - feature hidden for launch
     color: 'text-pink-500',
     bgColor: 'bg-pink-500/10',
   },

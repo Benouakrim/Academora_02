@@ -4,6 +4,7 @@ import { FileText, Star as StarIcon, Bookmark, ArrowRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 
 type DashboardData = {
   recent: {
@@ -19,6 +20,8 @@ type DashboardData = {
 }
 
 export default function ActivityFeed({ data }: { data: DashboardData }) {
+  const { isAdmin } = useIsAdmin()
+  
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -106,9 +109,12 @@ export default function ActivityFeed({ data }: { data: DashboardData }) {
               ))})
               {data.recent.articles.length === 0 && <p className="text-xs text-muted-foreground">No articles published yet.</p>}
             </div>
-            <Link to="/articles/new">
-              <Button variant="link" className="px-0 mt-2 h-auto text-xs">Write New Article <ArrowRight className="ml-1 h-3 w-3" /></Button>
-            </Link>
+            {/* Write New Article button - admin only for launch */}
+            {isAdmin && (
+              <Link to="/articles/new">
+                <Button variant="link" className="px-0 mt-2 h-auto text-xs">Write New Article <ArrowRight className="ml-1 h-3 w-3" /></Button>
+              </Link>
+            )}
           </CardContent>
         </Card>
       </div>

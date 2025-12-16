@@ -98,7 +98,7 @@ export default function UniversityPage() {
         }
       });
     }
-  }, [universityData?.id, slug, trackPageView, universityData]);
+  }, [universityData?.id, slug]);
 
   if (!slug || isLoading) {
     return <LoadingSkeleton />
@@ -125,7 +125,11 @@ export default function UniversityPage() {
           blockList.map((block) => (
             <div key={block.id || Math.random()} className="w-full">
               <BlockRenderer
-                block={block}
+                block={{
+                  // Normalize server block shape to MicroContentBlock expected by renderer
+                  ...(block as Record<string, any>),
+                  type: (block as any).blockType || (block as any).type,
+                } as any}
                 // Pass the full canonical and user profiles for Inverse Blocks
                 universityProfile={canonicalData}
                 userProfile={userProfile}

@@ -49,8 +49,8 @@ export function useSavedUniversities() {
       qc.setQueryData<SavedUniversity[]>(key, prev.map((s) => (s.university.id === universityId ? { ...s, notes: note } : s)))
     }
     try {
-      // Assume backend supports this; if not, this call will be a no-op
-      await api.patch(`/user/saved/${universityId}`, { notes: note })
+      // Use the new PATCH /user/saved-notes endpoint
+      await api.patch(`/user/saved-notes/${universityId}`, { notes: note, type: 'university' })
     } catch (_err) {
       // Revert on error
       if (prev) qc.setQueryData<SavedUniversity[]>(key, prev)

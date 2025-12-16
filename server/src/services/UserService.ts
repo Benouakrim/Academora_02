@@ -127,4 +127,45 @@ export class UserService {
     });
     return { status: 'added' };
   }
+
+  static async toggleSavedArticle(clerkId: string, articleId: string) {
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new AppError(404, 'User not found');
+
+    const existing = await prisma.savedArticle.findUnique({
+      where: { userId_articleId: { userId: user.id, articleId } },
+    });
+
+    if (existing) {
+      await prisma.savedArticle.delete({ where: { id: existing.id } });
+      return { status: 'removed' };
+    }
+
+    await prisma.savedArticle.create({
+      data: { userId: user.id, articleId },
+    });
+    return { status: 'added' };
+  }
+
+  static async updateSavedUniversityNote(clerkId: string, universityId: string, notes: string | null) {
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new AppError(404, 'User not found');
+
+    const updated = await prisma.savedUniversity.update({
+      where: { userId_universityId: { userId: user.id, universityId } },
+      data: { notes },
+    });
+    return updated;
+  }
+
+  static async updateSavedArticleNote(clerkId: string, articleId: string, notes: string | null) {
+    const user = await prisma.user.findUnique({ where: { clerkId } });
+    if (!user) throw new AppError(404, 'User not found');
+
+    const updated = await prisma.savedArticle.update({
+      where: { userId_articleId: { userId: user.id, articleId } },
+      data: { notes },
+    });
+    return updated;
+  }
 }

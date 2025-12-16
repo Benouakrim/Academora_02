@@ -223,25 +223,11 @@ export default function MicroContentManagerV2({ universityId }: MicroContentMana
     },
   });
 
-  // NEW useEffect: Auto-create essential Hard Blocks if missing
-  useEffect(() => {
-    if (!isLoading && blocks.length === 0) {
-      // Only run if the initial load shows no blocks
-      CANONICAL_HARD_BLOCK_TYPES.forEach((type) => {
-        const isMissing = !blocks.some((b) => b.blockType === type);
-        if (isMissing) {
-          // Initialize with a high negative priority to force to the top
-          const defaultTitle = blockMetadata[type as BlockType]?.label || 'Essential Block';
-          initializeHardBlocksMutation.mutate({
-            blockType: type as BlockType,
-            title: defaultTitle,
-            data: {}, // Default data, actual form will populate later
-          });
-        }
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, universityId]);
+  // NOTE: Previously auto-created essential Hard Blocks on empty state.
+  // This caused unintended permanent blocks even when the admin hadn't saved.
+  // We now avoid auto-creating. Instead, we can show guidance to add essentials manually.
+  // If needed, re-enable via an explicit UI action.
+
 
   const resetForm = () => {
     setFormData({ title: '', data: {} });
@@ -569,7 +555,6 @@ export default function MicroContentManagerV2({ universityId }: MicroContentMana
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={(checked) => handleSelectBlock(block.id, checked as boolean)}
-                      disabled={isHardLocked} // Cannot select Hard Blocks for bulk operations
                       className="mt-1"
                       aria-label={`Select block: ${block.title}`}
                     />

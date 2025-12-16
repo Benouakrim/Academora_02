@@ -35,6 +35,21 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
           },
           orderBy: { createdAt: 'desc' }
         },
+        savedArticles: {
+          include: {
+            article: {
+              select: {
+                id: true,
+                slug: true,
+                title: true,
+                excerpt: true,
+                featuredImage: true,
+                createdAt: true,
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        },
       },
     });
     
@@ -69,6 +84,21 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
               },
               orderBy: { createdAt: 'desc' }
             },
+            savedArticles: {
+              include: {
+                article: {
+                  select: {
+                    id: true,
+                    slug: true,
+                    title: true,
+                    excerpt: true,
+                    featuredImage: true,
+                    createdAt: true,
+                  }
+                }
+              },
+              orderBy: { createdAt: 'desc' }
+            },
           },
         });
         
@@ -94,6 +124,21 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
                     tuitionInternational: true,
                   }
                 } 
+              },
+              orderBy: { createdAt: 'desc' }
+            },
+            savedArticles: {
+              include: {
+                article: {
+                  select: {
+                    id: true,
+                    slug: true,
+                    title: true,
+                    excerpt: true,
+                    featuredImage: true,
+                    createdAt: true,
+                  }
+                }
               },
               orderBy: { createdAt: 'desc' }
             },
@@ -179,6 +224,45 @@ export const toggleSaved = async (req: Request, res: Response, next: NextFunctio
     if (!clerkId) return res.status(401).json({ error: 'unauthenticated' });
     const universityId = req.params.id;
     const result = await UserService.toggleSavedUniversity(clerkId, universityId);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const toggleSavedArticle = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authFn = (req as any).auth as (() => { userId?: string } | undefined);
+    const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
+    if (!clerkId) return res.status(401).json({ error: 'unauthenticated' });
+    const articleId = req.params.id;
+    const result = await UserService.toggleSavedArticle(clerkId, articleId);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateSavedNotes = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authFn = (req as any).auth as (() => { userId?: string } | undefined);
+    const clerkId = typeof authFn === 'function' ? authFn()?.userId : undefined;
+    if (!clerkId) return res.status(401).json({ error: 'unauthenticated' });
+    
+    const { id } = req.params;
+    const { notes, type } = req.body; // type: 'university' or 'article'
+    
+    if (!type || !['university', 'article'].includes(type)) {
+      return res.status(400).json({ error: 'Invalid type. Must be "university" or "article"' });
+    }
+
+    let result;
+    if (type === 'university') {
+      result = await UserService.updateSavedUniversityNote(clerkId, id, notes ?? null);
+    } else {
+      result = await UserService.updateSavedArticleNote(clerkId, id, notes ?? null);
+    }
+    
     res.status(200).json(result);
   } catch (err) {
     next(err);

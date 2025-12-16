@@ -1,17 +1,23 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import clsx from 'clsx'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Menu, X, BarChart3, Bookmark, User, Award, Users, FileText, LayoutDashboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 
-const nav = [
+// Base navigation items available to all users
+const baseNav = [
   { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
   { to: '/dashboard/saved', label: 'Saved List', icon: Bookmark },
   { to: '/dashboard/profile', label: 'Profile', icon: User },
   { to: '/dashboard/badges', label: 'Badges', icon: Award },
   { to: '/dashboard/referrals', label: 'Referrals', icon: Users },
+]
+
+// Admin-only navigation items (hidden from regular users for launch)
+const adminOnlyNav = [
   { to: '/dashboard/claims', label: 'My Claims', icon: FileText },
   { to: '/dashboard/my-articles', label: 'My Articles', icon: FileText },
   { to: '/dashboard/my-articles/analytics', label: 'My Analytics', icon: BarChart3 },
@@ -19,6 +25,12 @@ const nav = [
 
 export default function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const { isAdmin } = useIsAdmin()
+
+  // Combine nav items based on user role
+  const nav = useMemo(() => {
+    return isAdmin ? [...baseNav, ...adminOnlyNav] : baseNav
+  }, [isAdmin])
 
   const toggleSidebar = () => setSidebarOpen((open) => !open)
   const closeSidebar = () => setSidebarOpen(false)

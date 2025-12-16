@@ -31,7 +31,7 @@ export function useInitialSearchCriteria() {
     if (query.data) {
       setProfileCriteria(query.data);
     }
-  }, [query.data, setProfileCriteria]);
+  }, [query.data]);
 
   return query;
 }

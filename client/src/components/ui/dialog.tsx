@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 
 type DialogContextValue = { open: boolean; setOpen: (o: boolean) => void }
@@ -28,14 +29,17 @@ export function DialogContent({ className, children }: { className?: string; chi
   const ctx = React.useContext(DialogContext)
   if (!ctx) throw new Error('DialogContent must be used within Dialog')
   if (!ctx.open) return null
-  return (
+  
+  const content = (
     <>
-      <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm" onClick={() => ctx.setOpen(false)} />
-      <div className={cn('fixed z-50 left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-6 shadow-lg', className)}>
+      <div className="fixed inset-0 z-[9998] bg-background/80" onClick={() => ctx.setOpen(false)} />
+      <div className={cn('fixed z-[9999] left-1/2 top-1/2 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-6 shadow-lg', className)}>
         {children}
       </div>
     </>
   )
+  
+  return createPortal(content, document.body)
 }
 
 export function DialogHeader({ className, children }: { className?: string; children?: React.ReactNode }) {

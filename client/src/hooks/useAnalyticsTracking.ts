@@ -1,13 +1,30 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
+import { useCookieConsent } from '@/context/CookieConsentContext';
+import Cookies from 'js-cookie';
 
 // Generate or get session ID
-function getSessionId(): string {
+function getSessionId(consent: 'accepted' | 'rejected' | null): string {
+  // 1. Try to get from cookie if accepted
+  if (consent === 'accepted') {
+    const cookieId = Cookies.get('analytics_session_id');
+    if (cookieId) return cookieId;
+  }
+
+  // 2. Try to get from session storage
   let sessionId = sessionStorage.getItem('analytics_session_id');
+  
+  // 3. If no session ID exists, create one
   if (!sessionId) {
     sessionId = crypto.randomUUID();
     sessionStorage.setItem('analytics_session_id', sessionId);
   }
+
+  // 4. If accepted, upgrade session storage to cookie
+  if (consent === 'accepted') {
+    Cookies.set('analytics_session_id', sessionId, { expires: 365, sameSite: 'Lax' });
+  }
+
   return sessionId;
 }
 
@@ -48,6 +65,7 @@ interface TrackBlockInteractionOptions {
  * Hook for tracking analytics events
  */
 export function useAnalyticsTracking() {
+  const { consent } = useCookieConsent();
   const pageViewIdRef = useRef<string | null>(null);
   const pageEntryTimeRef = useRef<number>(Date.now());
 
@@ -63,7 +81,7 @@ export function useAnalyticsTracking() {
         entityType,
         title,
         metadata,
-        sessionId: getSessionId(),
+        sessionId: getSessionId(consent),
         referrer: document.referrer || undefined,
       });
       
@@ -75,7 +93,7 @@ export function useAnalyticsTracking() {
       console.error('Failed to track page view:', error);
       return null;
     }
-  }, []);
+  }, [consent]);
 
   /**
    * Update page view duration when leaving
@@ -210,7 +228,7 @@ export function usePageViewTracking(page: string, entityId?: string, entitySlug?
     return () => {
       updateDuration();
     };
-  }, [page, entityId, entitySlug, trackPageView, updateDuration]);
+  }, [page, entityId, entitySlug]);
 }
 
 /**

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { UserButton, useAuth, useUser } from '@clerk/clerk-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useUserStore } from '@/store/useUserStore'
 import { Menu, Sparkles, Settings, LayoutDashboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import AdminMenu from './AdminMenu'
 import UserMenu from './UserMenu'
 import { NotificationBell } from './NotificationBell'
 import LanguageSwitcher from '@/components/common/LanguageSwitcher'
+import ThemeSwitcher from '@/components/common/ThemeSwitcher'
 import { useTranslation } from 'react-i18next'
 
 export default function Navbar() {
@@ -71,13 +72,21 @@ export default function Navbar() {
 
           {/* Center: Navigation */}
           <div className="hidden md:flex items-center gap-8">
-            {[
-              { to: '/search', label: 'Universities' },
-              { to: '/groups', label: 'Collections' },
-              { to: '/compare', label: 'Compare' },
-              { to: '/blog', label: 'Insights' },
-              { to: '/pricing', label: 'Pricing' },
-            ].map((link) => (
+            {/* Build navigation links based on user role */}
+            {useMemo(() => {
+              // Base navigation for all users
+              const baseLinks = [
+                { to: '/search', label: 'Universities' },
+                { to: '/compare', label: 'Compare' },
+                { to: '/blog', label: 'Blog' },
+              ]
+              // Admin-only links (hidden for regular users at launch)
+              const adminLinks = [
+                { to: '/groups', label: 'Collections' },
+                { to: '/pricing', label: 'Pricing' },
+              ]
+              return isAdmin ? [...baseLinks.slice(0, 1), adminLinks[0], ...baseLinks.slice(1), adminLinks[1]] : baseLinks
+            }, [isAdmin]).map((link) => (
               <Link 
                 key={link.to} 
                 to={link.to}
@@ -91,6 +100,7 @@ export default function Navbar() {
 
           {/* Right: Auth Actions */}
           <div className="flex items-center gap-3">
+            <ThemeSwitcher />
             <LanguageSwitcher />
             {!isSignedIn ? (
               <>
@@ -105,11 +115,14 @@ export default function Navbar() {
               </>
             ) : (
               <div className="flex items-center gap-3">
-                <Link to="/articles/new">
-                  <Button variant="outline" size="sm" className="hidden lg:flex">
-                    Write Article
-                  </Button>
-                </Link>
+                {/* Write Article button - admin only for launch */}
+                {isAdmin && (
+                  <Link to="/articles/new">
+                    <Button variant="outline" size="sm" className="hidden lg:flex">
+                      Write Article
+                    </Button>
+                  </Link>
+                )}
                 <Link to="/dashboard">
                   <Button variant="ghost" size="sm" className="hidden md:flex">
                     <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
